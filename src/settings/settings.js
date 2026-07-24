@@ -20,12 +20,14 @@ const $ = (id) => document.getElementById(id);
 const list = $('monsters');
 
 function save() {
+  cfg.petPosition = loadConfig(CONFIG_FILE).petPosition; // main이 갱신한 위치 보존
   saveConfig(CONFIG_FILE, cfg);
   ipcRenderer.send('config-changed');
   render();
 }
 
 function render() {
+  if (cfg.source !== 'codex') cfg.source = 'claude';
   document.querySelector(`input[name=source][value=${cfg.source}]`).checked = true;
   list.innerHTML = '';
   for (const [id, m] of Object.entries(cfg.monsters)) {
@@ -96,6 +98,7 @@ $('custom-add').onclick = () => {
   const name = $('custom-name').value.trim();
   const files = [...$('custom-files').files].sort((a, b) => a.name.localeCompare(b.name));
   if (!name || files.length < 1) return alert('이름과 GIF 파일을 지정해줘요');
+  if (!/^[\w가-힣 -]+$/.test(name)) return alert('이름에는 한글/영문/숫자/공백/하이픈만 쓸 수 있어요');
   fs.mkdirSync(CACHE_DIR, { recursive: true });
   const stages = files.map((f, i) => {
     const dest = path.join(CACHE_DIR, `custom-${name}-${i}.gif`);
