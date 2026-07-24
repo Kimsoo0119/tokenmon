@@ -10,7 +10,7 @@ let state = null;
 let currentGif = null;
 let bubbleTimer;
 let agentBusy = false; // 몬스터볼 표시 중
-const sessions = new Map(); // 세션ID → {state: 'working'|'waiting', ts} (cmux 등 다중 세션 합산용)
+const sessions = new Map(); // 작업 중인 세션ID → {ts} (여러 터미널 세션 합산용)
 const SESSION_TTL = 30 * 60 * 1000; // 이벤트 유실 대비: 오래된 세션 자동 제거
 
 // 펫/알/볼 중 무엇을 보여줄지 한곳에서 결정
@@ -105,30 +105,26 @@ sprite.addEventListener('animationend', () => sprite.classList.remove('attacking
 ipcRenderer.on('agent-event', (_, ev) => {
   if (ev.type === 'notify') return notifyBubble('🔔', ev.message);
   const key = ev.session || '';
-  if (ev.type === 'start') sessions.set(key, { state: 'working', ts: Date.now() });
-  else if (ev.type === 'waiting') sessions.set(key, { state: 'waiting', ts: Date.now() });
-  else if (ev.type === 'done') sessions.delete(key);
+  if (ev.type === 'start') sessions.set(key, { ts: Date.now() });
+  else sessions.delete(key); // done·waiting 모두 작업 목록에서 제거 (waiting은 일회성 알림)
   render(ev);
 });
 
-// 세션 상태를 하나의 표시 상태로 합산: waiting > working > idle
-function counts() {
+// 작업 중인 세션 수 (오래된 항목은 정리)
+function countWorking() {
   const cutoff = Date.now() - SESSION_TTL;
-  let waiting = 0, working = 0;
-  for (const [k, s] of sessions) {
-    if (s.ts < cutoff) { sessions.delete(k); continue; }
-    s.state === 'waiting' ? waiting++ : working++;
-  }
-  return { waiting, working };
+  for (const [k, s] of sessions) if (s.ts < cutoff) sessions.delete(k);
+  return sessions.size;
 }
 
 function render(ev) {
-  const { waiting, working } = counts();
+  const working = countWorking();
   const from = ev.project ? `${ev.project} · ` : ''; // 어느 프로젝트에서 온 이벤트인지
-  if (waiting > 0) {
+  if (ev.type === 'waiting') {
+    // waiting을 상태로 유지하면 답 안 한 세션이 쌓였을 때 새 작업이 볼에 못 들어가므로 일회성으로만 연출
     const msg = from + (ev.message || '답변을 기다리고 있어요!');
-    if (agentBusy) burstOut('🙋', msg); // 놓침! 볼에서 탈출
-    else if (ev.type === 'waiting') notifyBubble('🙋', msg);
+    if (agentBusy && working === 0) burstOut('🙋', msg); // 놓침! 볼에서 탈출
+    else notifyBubble('🙋', msg); // 다른 세션 작업 중이면 볼 유지한 채 말풍선만
   } else if (working > 0) {
     if (!agentBusy) capture();
     else if (ev.type === 'done') notifyBubble('✅', `${from}완료 · ${working}개 작업 중`);
@@ -180,8 +176,7 @@ function caughtThenBurst(msg) {
   ball.classList.remove('wobbling');
   ball.classList.add('caught');
   setTimeout(() => {
-    const { waiting, working } = counts();
-    if (working > 0 && waiting === 0) {
+    if (countWorking() > 0) {
       ball.classList.remove('caught');
       ball.classList.add('wobbling');
     } else burstOut('✅', msg);
