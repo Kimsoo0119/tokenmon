@@ -57,6 +57,9 @@
   q('custom-files').addEventListener('click', () => ipcRenderer.send('panel-pinned', true));
   window.addEventListener('focus', () => ipcRenderer.send('panel-pinned', false));
 
+  // 알 클릭/트레이 메뉴에서 설정을 바로 펼친 상태로 열기
+  ipcRenderer.on('expand-settings', () => { if (sec.hidden) q('settings').onclick(); });
+
   q('refresh').onclick = () => ipcRenderer.send('panel-refresh');
   q('quit').onclick = () => ipcRenderer.send('panel-quit');
 })();

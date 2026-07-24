@@ -6,7 +6,7 @@ const { stageIndex } = require('./evolution');
 const { fetchClaudeUsage } = require('./usage/claude');
 const { fetchCodexUsage } = require('./usage/codex');
 
-let cfg, petWin, settingsWin, panelWin, bubbleWin, tray;
+let cfg, petWin, panelWin, bubbleWin, tray;
 let bubbleTimer;
 let lastPercent = null;
 let lastUsage = null; // { fiveHour: {pct, resetsAt}|null, weekly: {pct, resetsAt} }
@@ -171,13 +171,14 @@ function createPetWindow() {
   petWin.webContents.on('did-finish-load', pushState);
 }
 
-function openSettings() {
-  if (settingsWin && !settingsWin.isDestroyed()) return settingsWin.focus();
-  settingsWin = new BrowserWindow({
-    width: 560, height: 680, title: 'tokenmon 설정',
-    webPreferences: { nodeIntegration: true, contextIsolation: false },
-  });
-  settingsWin.loadFile(path.join(__dirname, 'settings', 'settings.html'));
+// 설정은 패널의 인라인 섹션으로 통일 — 패널을 트레이 밑에 펼친 상태로 연다
+function openPanelSettings() {
+  if (!panelWin || panelWin.isDestroyed()) return;
+  const b = tray.getBounds();
+  panelWin.setPosition(Math.round(b.x + b.width / 2 - PANEL_W / 2), Math.round(b.y + b.height + 4));
+  pushPanel();
+  panelWin.show();
+  panelWin.webContents.send('expand-settings');
 }
 
 // 외부 알림: events.jsonl에 한 줄 추가되면 펫이 알림 (Claude Code Notification 훅 등)
@@ -215,7 +216,7 @@ app.whenReady().then(() => {
   tray = new Tray(nativeImage.createEmpty());
   tray.setTitle(' …');
   const menu = Menu.buildFromTemplate([
-    { label: '설정', click: openSettings },
+    { label: '설정', click: openPanelSettings },
     { label: '지금 새로고침', click: poll },
     { type: 'separator' },
     { label: '종료', role: 'quit' },
@@ -266,7 +267,7 @@ ipcMain.on('move-pet', (_, { dx, dy }) => {
   petWin.setPosition(dragStart[0] + dx, dragStart[1] + dy);
 });
 ipcMain.on('bubble', (_, { html, duration }) => showBubble(html, duration));
-ipcMain.on('open-settings', openSettings);
+ipcMain.on('open-settings', openPanelSettings);
 ipcMain.on('bubble-debug', (_, d) => console.log('[bubble-render]', JSON.stringify(d)));
 ipcMain.on('drag-end', () => {
   const [x, y] = petWin.getPosition();
