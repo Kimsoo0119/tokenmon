@@ -18,6 +18,8 @@
   }
 
   ipcRenderer.on('panel-data', (_, d) => {
+    // 소스별 액센트: Claude 코럴 / Codex 틸
+    document.documentElement.style.setProperty('--accent', d.source === 'codex' ? '#10a37f' : '#d97757');
     q('src').textContent = d.source === 'codex' ? 'Codex' : 'Claude';
     q('err').textContent = d.error ? '⚠️ 조회 실패' : '';
     setBar('fh', d.usage?.fiveHour?.pct, d.usage?.fiveHour?.resetsAt);

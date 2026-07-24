@@ -1,58 +1,104 @@
 <meta charset="utf-8">
 <style>
-  html, body { margin: 0; background: transparent; }
-  body { font: 13px -apple-system; color: #eee; }
-  #card { background: rgba(30,30,32,.97); border-radius: 12px; padding: 14px 16px;
-    border: 1px solid rgba(255,255,255,.08); }
-  h1 { font-size: 14px; margin: 0 0 12px; display: flex; justify-content: space-between; align-items: center; }
-  h1 .src { color: #4c8dff; }
-  h1 .err { color: #ff5f57; font-size: 12px; }
-  .sec { margin-bottom: 12px; }
-  .row { display: flex; justify-content: space-between; font-size: 12px; color: #aaa; }
-  .row b { color: #eee; font-weight: 600; }
-  .bar { background: #3a3a3e; border-radius: 4px; height: 6px; overflow: hidden; margin: 5px 0 3px; }
-  .bar i { display: block; height: 100%; background: #4c8dff; transition: width .3s; }
-  .bar i.warn { background: #ffb340; }
-  .bar i.danger { background: #ff5f57; }
-  .btns { display: flex; gap: 8px; margin-top: 12px; }
-  button { flex: 1; background: #3a3a3e; color: #eee; border: 0; border-radius: 8px;
-    padding: 7px 0; font: 12px -apple-system; cursor: pointer; }
-  button:hover { background: #4a4a4e; }
-  /* 인라인 설정 섹션 */
-  #settings-sec { border-top: 1px solid rgba(255,255,255,.1); margin-top: 12px;
-    padding-top: 4px; max-height: 430px; overflow-y: auto; }
+  :root {
+    --accent: #d97757;            /* Claude 코럴 (Codex면 JS가 틸로 교체) */
+    --bg: rgba(24, 24, 27, .96);
+    --card-line: rgba(255, 255, 255, .09);
+    --hairline: rgba(255, 255, 255, .07);
+    --text: #ececf0;
+    --muted: #8e8e96;
+    --faint: #626269;
+    --field: rgba(255, 255, 255, .06);
+    --field-line: rgba(255, 255, 255, .12);
+    --mono: ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  body { font: 13px/1.45 -apple-system, 'Apple SD Gothic Neo', sans-serif;
+    color: var(--text); -webkit-font-smoothing: antialiased; }
+
+  #card { background: linear-gradient(180deg, rgba(38,38,42,.97), var(--bg) 120px);
+    border: 1px solid var(--card-line); border-radius: 14px; padding: 16px 18px 14px;
+    box-shadow: 0 18px 50px rgba(0,0,0,.5);
+    animation: pop .22s cubic-bezier(.2,.9,.3,1.2); }
+  @keyframes pop { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
+
+  h1 { font-size: 13px; font-weight: 700; letter-spacing: -.2px;
+    margin: 0 0 14px; display: flex; justify-content: space-between; align-items: baseline; }
+  h1 .src { color: var(--accent); font-weight: 800; }
+  h1 .err { color: #ff6961; font-size: 11px; font-weight: 500; }
+
+  .sec { margin-bottom: 13px; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; }
+  .row .label { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: .4px; }
+  .row b { font: 600 15px var(--mono); font-variant-numeric: tabular-nums; color: var(--text); }
+  .row .sub { font-size: 10.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+
+  .bar { background: rgba(255,255,255,.08); border-radius: 99px; height: 5px;
+    overflow: hidden; margin: 6px 0 4px; }
+  .bar i { display: block; height: 100%; border-radius: 99px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 70%, transparent), var(--accent));
+    transition: width .45s cubic-bezier(.3,.8,.3,1); }
+  .bar i.warn { background: linear-gradient(90deg, #d9a13f, #ffb340); }
+  .bar i.danger { background: linear-gradient(90deg, #e0483f, #ff5f57); }
+
+  .btns { display: flex; gap: 7px; margin-top: 14px; }
+  button { flex: 1; background: var(--field); color: var(--text);
+    border: 1px solid var(--field-line); border-radius: 9px; padding: 6px 0;
+    font: 500 12px -apple-system, 'Apple SD Gothic Neo', sans-serif; cursor: pointer;
+    transition: background .12s, border-color .12s; }
+  button:hover { background: rgba(255,255,255,.11); border-color: rgba(255,255,255,.18); }
+  button:active { background: rgba(255,255,255,.15); }
+
+  /* ── 인라인 설정 ───────────────────────────── */
+  #settings-sec { border-top: 1px solid var(--hairline); margin-top: 14px;
+    padding-top: 6px; max-height: 430px; overflow-y: auto; }
   #settings-sec::-webkit-scrollbar { display: none; }
-  #settings-sec section { margin: 10px 0; }
-  #settings-sec h2 { font-size: 12px; color: #aaa; margin: 0 0 6px; font-weight: 600; }
-  #settings-sec label { margin-right: 10px; }
-  #settings-sec input[type=text] { width: 150px; background: #2a2a2e; color: #eee;
-    border: 1px solid #4a4a4e; border-radius: 6px; padding: 4px 8px; }
-  #settings-sec .thr { width: 70px; background: #2a2a2e; color: #eee;
-    border: 1px solid #4a4a4e; border-radius: 6px; padding: 3px 6px; }
-  #settings-sec select { background: #2a2a2e; color: #eee; border: 1px solid #4a4a4e;
-    border-radius: 6px; padding: 3px; max-width: 280px; }
-  #settings-sec button { flex: none; padding: 4px 10px; }
+  #settings-sec:not([hidden]) { animation: fadeUp .25s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(-4px); } }
+
+  #settings-sec section { margin: 13px 0; }
+  #settings-sec h2 { font-size: 10.5px; font-weight: 700; color: var(--faint);
+    letter-spacing: 1px; margin: 0 0 7px; }
+  #settings-sec label { margin-right: 12px; font-size: 12.5px; }
+  input[type=radio], input[type=range] { accent-color: var(--accent); }
+  #settings-sec input[type=text] { width: 152px; background: var(--field); color: var(--text);
+    border: 1px solid var(--field-line); border-radius: 8px; padding: 5px 9px;
+    font: 12.5px -apple-system, 'Apple SD Gothic Neo', sans-serif; outline: none;
+    transition: border-color .12s; }
+  #settings-sec input[type=text]:focus { border-color: var(--accent); }
+  #settings-sec input[type=text]::placeholder { color: var(--faint); }
+  #settings-sec .thr { width: 70px; background: var(--field); color: var(--text);
+    border: 1px solid var(--field-line); border-radius: 7px; padding: 4px 7px;
+    font: 12px var(--mono); outline: none; }
+  #settings-sec .thr:focus { border-color: var(--accent); }
+  #settings-sec select { background: #2a2a2e; color: var(--text);
+    border: 1px solid var(--field-line); border-radius: 7px; padding: 4px; max-width: 300px; }
+  #settings-sec button { flex: none; padding: 5px 12px; }
   #settings-sec ul { padding: 0; margin: 0; }
-  #settings-sec li { margin: 8px 0; list-style: none; line-height: 1.8; }
-  #settings-sec .hint { color: #777; font-size: 11px; margin-top: 3px; }
-  #poke-status { margin-left: 6px; color: #aaa; font-size: 12px; }
+  #settings-sec li { margin: 9px 0; list-style: none; line-height: 1.9; font-size: 12.5px; }
+  #settings-sec li b { font-weight: 700; }
+  #settings-sec .hint { color: var(--faint); font-size: 11px; margin-top: 4px; }
+  #pet-size-label { font: 12px var(--mono); color: var(--muted); margin-left: 6px; }
+  #poke-status { margin-left: 6px; color: var(--muted); font-size: 12px; }
+  input[type=file] { color: var(--muted); font-size: 11px; }
 </style>
 <div id="card">
   <h1><span>tokenmon <span class="src" id="src"></span></span><span class="err" id="err"></span></h1>
   <div class="sec">
-    <div class="row"><span>5시간</span><b id="fh-pct">—</b></div>
+    <div class="row"><span class="label">5시간</span><b id="fh-pct">—</b></div>
     <div class="bar"><i id="fh-bar" style="width:0%"></i></div>
-    <div class="row"><span></span><span id="fh-reset"></span></div>
+    <div class="row"><span></span><span class="sub" id="fh-reset"></span></div>
   </div>
   <div class="sec">
-    <div class="row"><span>주간</span><b id="wk-pct">—</b></div>
+    <div class="row"><span class="label">주간</span><b id="wk-pct">—</b></div>
     <div class="bar"><i id="wk-bar" style="width:0%"></i></div>
-    <div class="row"><span></span><span id="wk-reset"></span></div>
+    <div class="row"><span></span><span class="sub" id="wk-reset"></span></div>
   </div>
   <div class="sec">
-    <div class="row"><span id="mon-name">몬스터 없음</span><b id="mon-stage"></b></div>
+    <div class="row"><span class="label" id="mon-name">몬스터 없음</span><b id="mon-stage" style="font-size:13px"></b></div>
     <div class="bar"><i id="mon-bar" style="width:0%"></i></div>
-    <div class="row"><span></span><span id="mon-next"></span></div>
+    <div class="row"><span></span><span class="sub" id="mon-next"></span></div>
   </div>
   <div class="btns">
     <button id="refresh">새로고침</button>
@@ -75,7 +121,7 @@
       <input id="poke-name" type="text" placeholder="한글 이름 (예: 피카츄)">
       <button id="poke-lookup">불러오기</button>
       <span id="poke-status"></span>
-      <div style="margin-top:6px">
+      <div style="margin-top:7px">
         <select id="poke-paths" hidden></select>
         <button id="poke-add" hidden>추가</button>
       </div>
@@ -83,7 +129,7 @@
     <section>
       <h2>커스텀 몬스터 (GIF 직접 지정)</h2>
       <input id="custom-name" type="text" placeholder="이름">
-      <input id="custom-files" type="file" accept=".gif" multiple style="color:#aaa;font-size:11px">
+      <input id="custom-files" type="file" accept=".gif" multiple>
       <button id="custom-add">추가</button>
       <div class="hint">파일명 정렬 순서 = 진화 순서</div>
     </section>
