@@ -4,6 +4,8 @@ const empty = document.getElementById('empty');
 const bubble = document.getElementById('bubble');
 const flash = document.getElementById('flash');
 const ball = document.getElementById('ball');
+const ballWrap = document.getElementById('ballWrap');
+const ballCount = document.getElementById('ballCount');
 let state = null;
 let currentGif = null;
 let bubbleTimer;
@@ -14,7 +16,7 @@ const SESSION_TTL = 30 * 60 * 1000; // 이벤트 유실 대비: 오래된 세션
 // 펫/알/볼 중 무엇을 보여줄지 한곳에서 결정
 function syncVisibility() {
   const has = !!(state && state.stage);
-  ball.style.display = agentBusy ? 'block' : 'none';
+  ballWrap.style.display = agentBusy ? 'block' : 'none';
   sprite.style.display = has && !agentBusy ? 'block' : 'none';
   empty.style.display = !has && !agentBusy ? 'block' : 'none';
 }
@@ -122,20 +124,24 @@ function counts() {
 
 function render(ev) {
   const { waiting, working } = counts();
+  const from = ev.project ? `${ev.project} · ` : ''; // 어느 프로젝트에서 온 이벤트인지
   if (waiting > 0) {
-    const msg = ev.message || '답변을 기다리고 있어요!';
+    const msg = from + (ev.message || '답변을 기다리고 있어요!');
     if (agentBusy) burstOut('🙋', msg); // 놓침! 볼에서 탈출
     else if (ev.type === 'waiting') notifyBubble('🙋', msg);
   } else if (working > 0) {
     if (!agentBusy) capture();
-    else if (ev.type === 'done') notifyBubble('✅', `완료 · ${working}개 작업 중`);
-    else if (ev.type === 'start' && working > 1) notifyBubble('⚙️', `${working}개 작업 중`);
+    else if (ev.type === 'done') notifyBubble('✅', `${from}완료 · ${working}개 작업 중`);
+    else if (ev.type === 'start' && working > 1) notifyBubble('⚙️', `${from}시작 · ${working}개 작업 중`);
   } else {
     if (agentBusy) {
-      if (ev.type === 'done') caughtThenBurst(ev.message || '작업 완료!'); // 마지막 세션 완료
+      if (ev.type === 'done') caughtThenBurst(ev.message || from + '작업 완료!'); // 마지막 세션 완료
       else release(); // TTL 만료 등
-    } else if (ev.type === 'done') notifyBubble('✅', ev.message || '작업 완료!');
+    } else if (ev.type === 'done') notifyBubble('✅', ev.message || from + '작업 완료!');
   }
+  // 동시 작업 세션 수 배지 (agentBusy는 위 분기에서 갱신됨)
+  ballCount.textContent = `×${working}`;
+  ballCount.style.display = agentBusy && working > 1 ? 'block' : 'none';
 }
 
 // 이벤트 없이 죽은 세션 정리 (볼에 갇힌 채 방치 방지)

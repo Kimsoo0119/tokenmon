@@ -22,8 +22,14 @@
   }
   #empty { font-size: 64px; cursor: default; margin-bottom: 30px; }
   /* 에이전트 작업 중 몬스터볼 (PokeAPI 아이템 스프라이트, 30px 원본을 2배 정수 스케일) */
+  #ballWrap { position: relative; display: none; margin-bottom: 24px; }
   #ball { width: 60px; height: 60px; image-rendering: pixelated; -webkit-user-drag: none;
-    display: none; margin-bottom: 24px; cursor: grab; transform-origin: 50% 100%; }
+    display: block; cursor: grab; transform-origin: 50% 100%; }
+  /* 동시 작업 세션 수 배지 (2개 이상일 때만) */
+  #ballCount { position: absolute; top: -8px; right: -18px; pointer-events: none; display: none;
+    background: rgba(24,24,27,.95); color: #ffb340;
+    border: 1px solid rgba(255,255,255,.12); border-radius: 9px; padding: 1px 6px;
+    font: 600 11px ui-monospace, 'SF Mono', Menlo, monospace; font-variant-numeric: tabular-nums; }
   #ball.wobbling { animation: wobble 1.6s ease-in-out infinite; }
   @keyframes wobble {
     0%, 55%, 100% { transform: rotate(0); }
@@ -66,7 +72,10 @@
   <div id="bubble"></div>
   <div id="empty" title="트레이 → 설정에서 몬스터를 추가하세요">🥚</div>
   <img id="sprite">
-  <img id="ball" src="../../assets/pokeball.png" title="클릭하면 나옵니다">
+  <div id="ballWrap">
+    <img id="ball" src="../../assets/pokeball.png" title="클릭하면 나옵니다">
+    <div id="ballCount"></div>
+  </div>
   <div id="flash"></div>
 </div>
 <script src="pet.js"></script>

@@ -28,7 +28,8 @@ npm start
 - `{"message":"..."}` — 점프 + 말풍선 알림 (기존 방식)
 
 `session`으로 여러 터미널(cmux 등)의 세션을 구분해 합산합니다: 하나라도 답변 대기면 탈출,
-아니면 하나라도 작업 중이면 볼 유지, 마지막 세션이 끝날 때만 딸깍+터짐 연출.
+아니면 하나라도 작업 중이면 볼 유지(2개 이상이면 볼 옆에 ×N 배지), 마지막 세션이 끝날 때만
+딸깍+터짐 연출. `project`(프로젝트 폴더명)를 넣으면 말풍선에 어디서 온 이벤트인지 표시됩니다.
 볼 상태가 꼬이면 볼을 클릭해 바로 꺼낼 수 있고, 이벤트 없이 30분 지난 세션은 자동 제거됩니다.
 
 Claude Code 훅과 연결하려면 `~/.claude/settings.json`에 추가하세요:
@@ -41,7 +42,7 @@ Claude Code 훅과 연결하려면 `~/.claude/settings.json`에 추가하세요:
         "hooks": [
           {
             "type": "command",
-            "command": "jq -c '{type:\"start\", session:.session_id}' >> \"$HOME/Library/Application Support/tokenmon/events.jsonl\" 2>/dev/null || true",
+            "command": "jq -c '{type:\"start\", session:.session_id, project:(.cwd // \"\" | split(\"/\") | last // \"\")}' >> \"$HOME/Library/Application Support/tokenmon/events.jsonl\" 2>/dev/null || true",
             "timeout": 5,
             "async": true
           }
@@ -53,7 +54,7 @@ Claude Code 훅과 연결하려면 `~/.claude/settings.json`에 추가하세요:
         "hooks": [
           {
             "type": "command",
-            "command": "jq -c '{type:\"done\", session:.session_id}' >> \"$HOME/Library/Application Support/tokenmon/events.jsonl\" 2>/dev/null || true",
+            "command": "jq -c '{type:\"done\", session:.session_id, project:(.cwd // \"\" | split(\"/\") | last // \"\")}' >> \"$HOME/Library/Application Support/tokenmon/events.jsonl\" 2>/dev/null || true",
             "timeout": 5,
             "async": true
           }
@@ -65,7 +66,7 @@ Claude Code 훅과 연결하려면 `~/.claude/settings.json`에 추가하세요:
         "hooks": [
           {
             "type": "command",
-            "command": "jq -c '{type:\"waiting\", message:.message, session:.session_id}' >> \"$HOME/Library/Application Support/tokenmon/events.jsonl\" 2>/dev/null || true",
+            "command": "jq -c '{type:\"waiting\", message:.message, session:.session_id, project:(.cwd // \"\" | split(\"/\") | last // \"\")}' >> \"$HOME/Library/Application Support/tokenmon/events.jsonl\" 2>/dev/null || true",
             "timeout": 5,
             "async": true
           }
