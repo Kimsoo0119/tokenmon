@@ -1,0 +1,13 @@
+{
+  "name": "tokemon",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "electron": "^43.2.0"
+  }
+}
