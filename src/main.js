@@ -151,7 +151,6 @@ function showBubble(html, duration = 2500) {
     y: below ? p.y + p.height - 8 : p.y - BUBBLE_H + 8,
     width: BUBBLE_W, height: BUBBLE_H,
   });
-  console.log('[bubble]', JSON.stringify({ pet: p, workArea: wa, bx, below, tailX: Math.round(petCenterX - bx) }));
   bubbleWin.webContents.send('bubble-content', { html, below, tailX: Math.round(petCenterX - bx) });
   bubbleWin.showInactive();
   clearTimeout(bubbleTimer);
@@ -269,7 +268,6 @@ ipcMain.on('move-pet', (_, { dx, dy }) => {
 });
 ipcMain.on('bubble', (_, { html, duration }) => showBubble(html, duration));
 ipcMain.on('open-settings', openPanelSettings);
-ipcMain.on('bubble-debug', (_, d) => console.log('[bubble-render]', JSON.stringify(d)));
 ipcMain.on('drag-end', () => {
   const [x, y] = petWin.getPosition();
   cfg.petPosition = { x, y };

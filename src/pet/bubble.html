@@ -37,6 +37,5 @@
     b.style.left = `${left}px`;
     const t = Math.min(Math.max(tailX - left, 12), w - 12);
     b.style.setProperty('--tail', `${t}px`);
-    ipcRenderer.send('bubble-debug', { tailX, boxW: w, left, tail: t, winW: window.innerWidth });
   });
 </script>
