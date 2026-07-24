@@ -7,8 +7,9 @@ const ball = document.getElementById('ball');
 let state = null;
 let currentGif = null;
 let bubbleTimer;
-let agentBusy = false; // 에이전트 작업 중(몬스터볼 상태)
-let ballTimer;
+let agentBusy = false; // 몬스터볼 표시 중
+const sessions = new Map(); // 세션ID → {state: 'working'|'waiting', ts} (cmux 등 다중 세션 합산용)
+const SESSION_TTL = 30 * 60 * 1000; // 이벤트 유실 대비: 오래된 세션 자동 제거
 
 // 펫/알/볼 중 무엇을 보여줄지 한곳에서 결정
 function syncVisibility() {
@@ -100,16 +101,45 @@ sprite.addEventListener('animationend', () => sprite.classList.remove('attacking
 
 // 외부 이벤트(Claude Code 훅 등): start/done/waiting은 몬스터볼 연출, notify는 점프 + 말풍선
 ipcRenderer.on('agent-event', (_, ev) => {
-  if (ev.type === 'start') capture();
-  else if (ev.type === 'done') {
-    if (agentBusy) caughtThenBurst(ev.message || '작업 완료!');
-    else notifyBubble('✅', ev.message || '작업 완료!');
-  } else if (ev.type === 'waiting') {
+  if (ev.type === 'notify') return notifyBubble('🔔', ev.message);
+  const key = ev.session || '';
+  if (ev.type === 'start') sessions.set(key, { state: 'working', ts: Date.now() });
+  else if (ev.type === 'waiting') sessions.set(key, { state: 'waiting', ts: Date.now() });
+  else if (ev.type === 'done') sessions.delete(key);
+  render(ev);
+});
+
+// 세션 상태를 하나의 표시 상태로 합산: waiting > working > idle
+function counts() {
+  const cutoff = Date.now() - SESSION_TTL;
+  let waiting = 0, working = 0;
+  for (const [k, s] of sessions) {
+    if (s.ts < cutoff) { sessions.delete(k); continue; }
+    s.state === 'waiting' ? waiting++ : working++;
+  }
+  return { waiting, working };
+}
+
+function render(ev) {
+  const { waiting, working } = counts();
+  if (waiting > 0) {
     const msg = ev.message || '답변을 기다리고 있어요!';
     if (agentBusy) burstOut('🙋', msg); // 놓침! 볼에서 탈출
-    else notifyBubble('🙋', msg);
-  } else notifyBubble('🔔', ev.message);
-});
+    else if (ev.type === 'waiting') notifyBubble('🙋', msg);
+  } else if (working > 0) {
+    if (!agentBusy) capture();
+    else if (ev.type === 'done') notifyBubble('✅', `완료 · ${working}개 작업 중`);
+    else if (ev.type === 'start' && working > 1) notifyBubble('⚙️', `${working}개 작업 중`);
+  } else {
+    if (agentBusy) {
+      if (ev.type === 'done') caughtThenBurst(ev.message || '작업 완료!'); // 마지막 세션 완료
+      else release(); // TTL 만료 등
+    } else if (ev.type === 'done') notifyBubble('✅', ev.message || '작업 완료!');
+  }
+}
+
+// 이벤트 없이 죽은 세션 정리 (볼에 갇힌 채 방치 방지)
+setInterval(() => { if (sessions.size) render({ type: 'prune' }); }, 60 * 1000);
 
 // 점프 + 말풍선. 메시지는 외부 입력이라 textContent로만 출력
 function notifyBubble(icon, msg) {
@@ -126,8 +156,6 @@ function notifyBubble(icon, msg) {
 
 // 작업 시작: 펫이 볼로 빨려 들어가고 볼이 흔들림
 function capture() {
-  clearTimeout(ballTimer);
-  ballTimer = setTimeout(release, 30 * 60 * 1000); // 이벤트 유실 대비 자동 복귀
   if (agentBusy) return; // 이미 볼 상태면 흔들림 유지
   agentBusy = true;
   bubble.style.display = 'none';
@@ -141,16 +169,21 @@ function capture() {
   } else syncVisibility();
 }
 
-// 작업 완료: 딸깍! 잠긴 뒤 터지며 펫 복귀
+// 작업 완료: 딸깍! 잠긴 뒤 터지며 펫 복귀. 그 사이 새 세션이 시작되면 흔들림으로 복귀
 function caughtThenBurst(msg) {
   ball.classList.remove('wobbling');
   ball.classList.add('caught');
-  setTimeout(() => burstOut('✅', msg), 700);
+  setTimeout(() => {
+    const { waiting, working } = counts();
+    if (working > 0 && waiting === 0) {
+      ball.classList.remove('caught');
+      ball.classList.add('wobbling');
+    } else burstOut('✅', msg);
+  }, 700);
 }
 
 // 볼이 터지며 펫 복귀 + 말풍선
 function burstOut(icon, msg) {
-  clearTimeout(ballTimer);
   agentBusy = false;
   ball.classList.remove('wobbling', 'caught');
   ball.classList.add('burst');
@@ -163,9 +196,9 @@ function burstOut(icon, msg) {
   setTimeout(() => flash.classList.remove('on'), 1000);
 }
 
-// 조용히 복귀 (볼 클릭 · 자동 복귀)
+// 조용히 복귀 (볼 클릭 · TTL 만료). 세션 추적도 초기화해 다시 잡히지 않게 함
 function release() {
-  clearTimeout(ballTimer);
+  sessions.clear();
   agentBusy = false;
   ball.classList.remove('wobbling', 'caught', 'burst');
   syncVisibility();

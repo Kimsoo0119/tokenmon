@@ -22,12 +22,14 @@ npm start
 
 `~/Library/Application Support/tokenmon/events.jsonl`에 한 줄이 추가되면 펫이 반응합니다:
 
-- `{"type":"start"}` — 펫이 몬스터볼에 잡혀 들어가고, 작업 중인 동안 볼이 흔들림
-- `{"type":"done"}` — 볼이 딸깍! 잠긴 뒤 터지며 펫이 나옴 (작업 완료)
-- `{"type":"waiting","message":"..."}` — 볼이 터지며 펫이 탈출 (답변 대기 알림)
+- `{"type":"start","session":"..."}` — 펫이 몬스터볼에 잡혀 들어가고, 작업 중인 동안 볼이 흔들림
+- `{"type":"done","session":"..."}` — 볼이 딸깍! 잠긴 뒤 터지며 펫이 나옴 (작업 완료)
+- `{"type":"waiting","message":"...","session":"..."}` — 볼이 터지며 펫이 탈출 (답변 대기 알림)
 - `{"message":"..."}` — 점프 + 말풍선 알림 (기존 방식)
 
-볼 상태가 꼬이면 볼을 클릭해 바로 꺼낼 수 있고, 30분 무이벤트 시 자동 복귀합니다.
+`session`으로 여러 터미널(cmux 등)의 세션을 구분해 합산합니다: 하나라도 답변 대기면 탈출,
+아니면 하나라도 작업 중이면 볼 유지, 마지막 세션이 끝날 때만 딸깍+터짐 연출.
+볼 상태가 꼬이면 볼을 클릭해 바로 꺼낼 수 있고, 이벤트 없이 30분 지난 세션은 자동 제거됩니다.
 
 Claude Code 훅과 연결하려면 `~/.claude/settings.json`에 추가하세요:
 
@@ -39,7 +41,7 @@ Claude Code 훅과 연결하려면 `~/.claude/settings.json`에 추가하세요:
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"type\":\"start\"}' >> \"$HOME/Library/Application Support/tokenmon/events.jsonl\"",
+            "command": "jq -c '{type:\"start\", session:.session_id}' >> \"$HOME/Library/Application Support/tokenmon/events.jsonl\" 2>/dev/null || true",
             "timeout": 5,
             "async": true
           }
@@ -51,7 +53,7 @@ Claude Code 훅과 연결하려면 `~/.claude/settings.json`에 추가하세요:
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"type\":\"done\"}' >> \"$HOME/Library/Application Support/tokenmon/events.jsonl\"",
+            "command": "jq -c '{type:\"done\", session:.session_id}' >> \"$HOME/Library/Application Support/tokenmon/events.jsonl\" 2>/dev/null || true",
             "timeout": 5,
             "async": true
           }
@@ -63,7 +65,7 @@ Claude Code 훅과 연결하려면 `~/.claude/settings.json`에 추가하세요:
         "hooks": [
           {
             "type": "command",
-            "command": "jq -c '{type: \"waiting\", message: .message}' >> \"$HOME/Library/Application Support/tokenmon/events.jsonl\" 2>/dev/null || true",
+            "command": "jq -c '{type:\"waiting\", message:.message, session:.session_id}' >> \"$HOME/Library/Application Support/tokenmon/events.jsonl\" 2>/dev/null || true",
             "timeout": 5,
             "async": true
           }
