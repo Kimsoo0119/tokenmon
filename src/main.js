@@ -2,11 +2,12 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage } = require('electr
 const path = require('node:path');
 const { loadConfig, saveConfig } = require('./config');
 const { stageIndex } = require('./evolution');
-const { fetchClaudeWeekly } = require('./usage/claude');
-const { fetchCodexWeekly } = require('./usage/codex');
+const { fetchClaudeUsage } = require('./usage/claude');
+const { fetchCodexUsage } = require('./usage/codex');
 
-let cfg, petWin, settingsWin, tray;
+let cfg, petWin, settingsWin, panelWin, tray;
 let lastPercent = null;
+let lastUsage = null; // { fiveHour: {pct, resetsAt}|null, weekly: {pct, resetsAt} }
 let lastError = false;
 
 const configFile = () => path.join(app.getPath('userData'), 'config.json');
@@ -31,14 +32,55 @@ function pushState() {
 
 async function poll() {
   try {
-    const p = cfg.source === 'codex' ? await fetchCodexWeekly() : await fetchClaudeWeekly();
-    if (p != null) lastPercent = p;
-    lastError = p == null;
+    const u = cfg.source === 'codex' ? await fetchCodexUsage() : await fetchClaudeUsage();
+    if (u) { lastUsage = u; lastPercent = u.weekly.pct; }
+    lastError = u == null;
   } catch {
     lastError = true; // 마지막 성공 값 유지
   }
   tray.setTitle(lastError ? ' ⚠️' : lastPercent == null ? ' …' : ` ${Math.round(lastPercent)}%`);
   pushState();
+  pushPanel();
+}
+
+function panelData() {
+  const m = cfg.monsters[cfg.activeMonster];
+  const idx = (m && lastPercent != null) ? stageIndex(m.thresholds, lastPercent) : 0;
+  return {
+    source: cfg.source,
+    error: lastError,
+    usage: lastUsage,
+    monster: m ? {
+      name: m.displayName,
+      stageName: m.stages[idx].name,
+      stageIdx: idx,
+      stageCount: m.stages.length,
+      nextThreshold: m.thresholds[idx] ?? null,
+    } : null,
+  };
+}
+
+function pushPanel() {
+  if (panelWin && !panelWin.isDestroyed()) panelWin.webContents.send('panel-data', panelData());
+}
+
+function createPanelWindow() {
+  panelWin = new BrowserWindow({
+    width: 300, height: 320, show: false, frame: false, resizable: false,
+    transparent: true, alwaysOnTop: true, skipTaskbar: true, hasShadow: true,
+    webPreferences: { nodeIntegration: true, contextIsolation: false },
+  });
+  panelWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  panelWin.loadFile(path.join(__dirname, 'panel', 'panel.html'));
+  panelWin.on('blur', () => panelWin.hide());
+}
+
+function togglePanel() {
+  if (panelWin.isVisible()) return panelWin.hide();
+  const b = tray.getBounds();
+  panelWin.setPosition(Math.round(b.x + b.width / 2 - 150), Math.round(b.y + b.height + 4));
+  pushPanel();
+  panelWin.show();
 }
 
 const petWinSize = () => (cfg.petSize || 140) + 60; // 말풍선 공간 포함
@@ -71,18 +113,24 @@ app.whenReady().then(() => {
   cfg = loadConfig(configFile());
   tray = new Tray(nativeImage.createEmpty());
   tray.setTitle(' …');
-  tray.setContextMenu(Menu.buildFromTemplate([
+  const menu = Menu.buildFromTemplate([
     { label: '설정', click: openSettings },
     { label: '지금 새로고침', click: poll },
     { type: 'separator' },
     { label: '종료', role: 'quit' },
-  ]));
+  ]);
+  tray.on('click', togglePanel);
+  tray.on('right-click', () => tray.popUpContextMenu(menu));
+  createPanelWindow();
   createPetWindow();
   poll();
   setInterval(poll, (cfg.pollIntervalMin || 5) * 60 * 1000);
 });
 
 ipcMain.on('get-config-path', (e) => { e.returnValue = configFile(); });
+ipcMain.on('panel-refresh', poll);
+ipcMain.on('panel-settings', () => { panelWin.hide(); openSettings(); });
+ipcMain.on('panel-quit', () => app.quit());
 ipcMain.on('config-changed', () => {
   cfg = loadConfig(configFile());
   if (petWin && !petWin.isDestroyed()) {
@@ -90,6 +138,7 @@ ipcMain.on('config-changed', () => {
     petWin.setBounds({ x, y, width: petWinSize(), height: petWinSize() });
   }
   pushState();
+  pushPanel();
 });
 ipcMain.on('move-pet', (_, { x, y }) => petWin.setPosition(x, y));
 ipcMain.on('drag-end', () => {

@@ -1,0 +1,45 @@
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: transparent; }
+  body { font: 13px -apple-system; color: #eee; }
+  #card { background: rgba(30,30,32,.97); border-radius: 12px; padding: 14px 16px;
+    border: 1px solid rgba(255,255,255,.08); }
+  h1 { font-size: 14px; margin: 0 0 12px; display: flex; justify-content: space-between; align-items: center; }
+  h1 .src { color: #4c8dff; }
+  h1 .err { color: #ff5f57; font-size: 12px; }
+  .sec { margin-bottom: 12px; }
+  .row { display: flex; justify-content: space-between; font-size: 12px; color: #aaa; }
+  .row b { color: #eee; font-weight: 600; }
+  .bar { background: #3a3a3e; border-radius: 4px; height: 6px; overflow: hidden; margin: 5px 0 3px; }
+  .bar i { display: block; height: 100%; background: #4c8dff; transition: width .3s; }
+  .bar i.warn { background: #ffb340; }
+  .bar i.danger { background: #ff5f57; }
+  .btns { display: flex; gap: 8px; margin-top: 12px; }
+  button { flex: 1; background: #3a3a3e; color: #eee; border: 0; border-radius: 8px;
+    padding: 7px 0; font: 12px -apple-system; cursor: pointer; }
+  button:hover { background: #4a4a4e; }
+</style>
+<div id="card">
+  <h1><span>tokenmon <span class="src" id="src"></span></span><span class="err" id="err"></span></h1>
+  <div class="sec">
+    <div class="row"><span>5시간</span><b id="fh-pct">—</b></div>
+    <div class="bar"><i id="fh-bar" style="width:0%"></i></div>
+    <div class="row"><span></span><span id="fh-reset"></span></div>
+  </div>
+  <div class="sec">
+    <div class="row"><span>주간</span><b id="wk-pct">—</b></div>
+    <div class="bar"><i id="wk-bar" style="width:0%"></i></div>
+    <div class="row"><span></span><span id="wk-reset"></span></div>
+  </div>
+  <div class="sec">
+    <div class="row"><span id="mon-name">몬스터 없음</span><b id="mon-stage"></b></div>
+    <div class="bar"><i id="mon-bar" style="width:0%"></i></div>
+    <div class="row"><span></span><span id="mon-next"></span></div>
+  </div>
+  <div class="btns">
+    <button id="refresh">새로고침</button>
+    <button id="settings">설정</button>
+    <button id="quit">종료</button>
+  </div>
+</div>
+<script src="panel.js"></script>

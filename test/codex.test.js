@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
-const { weeklyFromJsonl, fetchCodexWeekly } = require('../src/usage/codex');
+const { weeklyFromJsonl, usageFromJsonl, fetchCodexWeekly } = require('../src/usage/codex');
 
 const FIXTURE = [
   '{"timestamp":"t","type":"event_msg","payload":{"type":"agent_message"}}',
@@ -16,6 +16,24 @@ test('rate_limits 없으면 null', () => assert.equal(weeklyFromJsonl('{"a":1}\n
 test('깨진 줄은 건너뛰고 이전 스냅샷 사용', () =>
   assert.equal(weeklyFromJsonl(FIXTURE + '\n{broken rate_limits'), 7.5));
 test('빈 문자열 → null', () => assert.equal(weeklyFromJsonl(''), null));
+
+test('usageFromJsonl: 5시간/주간 %와 리셋 시각(ms) 반환', () => {
+  const line = JSON.stringify({ type: 'event_msg', payload: { type: 'token_count', rate_limits: {
+    primary: { used_percent: 40, window_minutes: 300, resets_at: 1783768016 },
+    secondary: { used_percent: 6, window_minutes: 10080, resets_at: 1784354816 },
+  } } });
+  assert.deepEqual(usageFromJsonl(line), {
+    fiveHour: { pct: 40, resetsAt: 1783768016000 },
+    weekly: { pct: 6, resetsAt: 1784354816000 },
+  });
+});
+
+test('usageFromJsonl: resets_at 없으면 null, primary 없어도 weekly는 반환', () => {
+  const line = JSON.stringify({ type: 'event_msg', payload: { type: 'token_count', rate_limits: {
+    secondary: { used_percent: 7.5, window_minutes: 10080 },
+  } } });
+  assert.deepEqual(usageFromJsonl(line), { fiveHour: null, weekly: { pct: 7.5, resetsAt: null } });
+});
 
 test('fetchCodexWeekly: 세션 디렉토리 없으면 null', async () => {
   assert.equal(await fetchCodexWeekly(path.join(os.tmpdir(), 'tokemon-no-such-dir-' + Date.now())), null);

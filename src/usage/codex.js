@@ -3,19 +3,28 @@ const path = require('node:path');
 const os = require('node:os');
 
 // 파일 끝에서부터 스캔: 마지막 rate_limits 스냅샷이 가장 최신
-function weeklyFromJsonl(text) {
+// 반환: { fiveHour: {pct, resetsAt(ms)}|null, weekly: {pct, resetsAt(ms)} } | null
+function usageFromJsonl(text) {
   const lines = text.split('\n');
   for (let i = lines.length - 1; i >= 0; i--) {
     if (!lines[i].includes('rate_limits')) continue;
     try {
-      const p = JSON.parse(lines[i])?.payload?.rate_limits?.secondary?.used_percent;
-      if (typeof p === 'number') return p;
+      const rl = JSON.parse(lines[i])?.payload?.rate_limits;
+      const pick = (w) => (w && typeof w.used_percent === 'number')
+        ? { pct: w.used_percent, resetsAt: w.resets_at ? w.resets_at * 1000 : null }
+        : null;
+      const weekly = pick(rl?.secondary);
+      if (weekly) return { fiveHour: pick(rl?.primary), weekly };
     } catch { /* 깨진 줄 무시 */ }
   }
   return null;
 }
 
-async function fetchCodexWeekly(sessionsDir = path.join(os.homedir(), '.codex', 'sessions')) {
+function weeklyFromJsonl(text) {
+  return usageFromJsonl(text)?.weekly.pct ?? null;
+}
+
+async function fetchCodexUsage(sessionsDir = path.join(os.homedir(), '.codex', 'sessions')) {
   let files;
   try {
     files = fs.readdirSync(sessionsDir, { recursive: true })
@@ -28,10 +37,14 @@ async function fetchCodexWeekly(sessionsDir = path.join(os.homedir(), '.codex', 
     return null; // Codex 미설치
   }
   for (const { f } of files) {
-    const p = weeklyFromJsonl(fs.readFileSync(f, 'utf8'));
-    if (p != null) return p;
+    const u = usageFromJsonl(fs.readFileSync(f, 'utf8'));
+    if (u) return u;
   }
   return null;
 }
 
-module.exports = { weeklyFromJsonl, fetchCodexWeekly };
+async function fetchCodexWeekly(sessionsDir) {
+  return (await fetchCodexUsage(sessionsDir))?.weekly.pct ?? null;
+}
+
+module.exports = { usageFromJsonl, weeklyFromJsonl, fetchCodexUsage, fetchCodexWeekly };

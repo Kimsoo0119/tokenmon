@@ -10,7 +10,8 @@ function keychainCredentials() {
   });
 }
 
-async function fetchClaudeWeekly() {
+// { fiveHour: {pct, resetsAt(ms)}|null, weekly: {pct, resetsAt(ms)} }
+async function fetchClaudeUsage() {
   const { claudeAiOauth } = await keychainCredentials();
   const res = await fetch('https://api.anthropic.com/api/oauth/usage', {
     headers: {
@@ -19,9 +20,17 @@ async function fetchClaudeWeekly() {
     },
   });
   if (!res.ok) throw new Error(`usage API ${res.status}`);
-  const u = (await res.json()).seven_day?.utilization;
-  if (typeof u !== 'number') throw new Error('seven_day.utilization 없음');
-  return u;
+  const d = await res.json();
+  const pick = (o) => (o && typeof o.utilization === 'number')
+    ? { pct: o.utilization, resetsAt: o.resets_at ? Date.parse(o.resets_at) : null }
+    : null;
+  const weekly = pick(d.seven_day);
+  if (!weekly) throw new Error('seven_day.utilization 없음');
+  return { fiveHour: pick(d.five_hour), weekly };
 }
 
-module.exports = { fetchClaudeWeekly };
+async function fetchClaudeWeekly() {
+  return (await fetchClaudeUsage()).weekly.pct;
+}
+
+module.exports = { fetchClaudeWeekly, fetchClaudeUsage };
