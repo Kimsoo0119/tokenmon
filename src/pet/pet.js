@@ -56,7 +56,7 @@ function sendTrayIcon() {
 let ignoringMouse = false;
 document.addEventListener('mousemove', (e) => {
   if (down) return; // 드래그 중엔 항상 이벤트 수신
-  const interactive = e.target === sprite || e.target === empty;
+  const interactive = e.target === sprite || empty.contains(e.target);
   if (ignoringMouse === interactive) {
     ignoringMouse = !interactive;
     ipcRenderer.send('ignore-mouse', ignoringMouse);

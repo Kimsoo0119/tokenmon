@@ -19,14 +19,17 @@
     65% { transform: translateX(-8px); }
     100% { transform: translateX(0); }
   }
-  #empty { font-size: 64px; cursor: default; }
+  #empty { font-size: 64px; cursor: pointer; }
+  #empty img { width: 96px; -webkit-user-drag: none; vertical-align: middle; }
   #flash { position: absolute; inset: 0; opacity: 0; pointer-events: none;
     background: radial-gradient(circle, rgba(255,255,255,.95) 15%, rgba(255,255,255,0) 65%); }
   #flash.on { animation: flashAnim 1s ease; }
   @keyframes flashAnim { 0% {opacity:0} 40% {opacity:1} 60% {opacity:1} 100% {opacity:0} }
 </style>
 <div id="wrap">
-  <div id="empty" title="트레이 → 설정에서 몬스터를 추가하세요">🥚</div>
+  <div id="empty" title="클릭해서 몬스터를 추가하세요"><img
+    src="https://img.pokemondb.net/sprites/home/normal/egg.png"
+    onerror="this.replaceWith('🥚')"></div>
   <img id="sprite">
   <div id="flash"></div>
 </div>
