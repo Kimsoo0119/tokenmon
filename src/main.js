@@ -113,18 +113,22 @@ function createBubbleWindow() {
   bubbleWin.loadFile(path.join(__dirname, 'pet', 'bubble.html'));
 }
 
-// 펫 위치 기준으로 위/아래 방향을 정해 말풍선 표시
+// 펫 위치 기준으로 위/아래 방향을 정해 말풍선 표시.
+// 화면 가장자리에선 창을 안쪽으로 클램프하고 꼬리만 펫을 향하게 이동
 function showBubble(html, duration = 2500) {
   if (!bubbleWin || bubbleWin.isDestroyed() || !petWin || petWin.isDestroyed()) return;
   const p = petWin.getBounds();
-  const workTop = screen.getDisplayNearestPoint({ x: p.x, y: p.y }).workArea.y;
-  const below = p.y - BUBBLE_H < workTop; // 위에 공간 없으면 아래로
+  const petCenterX = p.x + p.width / 2;
+  const wa = screen.getDisplayNearestPoint({ x: petCenterX, y: p.y }).workArea;
+  let bx = Math.round(petCenterX - BUBBLE_W / 2);
+  bx = Math.min(Math.max(bx, wa.x + 4), wa.x + wa.width - BUBBLE_W - 4);
+  const below = p.y - BUBBLE_H < wa.y; // 위에 공간 없으면 아래로
   bubbleWin.setBounds({
-    x: Math.round(p.x + p.width / 2 - BUBBLE_W / 2),
+    x: bx,
     y: below ? p.y + p.height - 8 : p.y - BUBBLE_H + 8,
     width: BUBBLE_W, height: BUBBLE_H,
   });
-  bubbleWin.webContents.send('bubble-content', { html, below });
+  bubbleWin.webContents.send('bubble-content', { html, below, tailX: Math.round(petCenterX - bx) });
   bubbleWin.showInactive();
   clearTimeout(bubbleTimer);
   bubbleTimer = setTimeout(() => { if (!bubbleWin.isDestroyed()) bubbleWin.hide(); }, duration);
@@ -226,9 +230,13 @@ ipcMain.on('tray-icon', (_, dataUrl) => {
 ipcMain.on('ignore-mouse', (_, v) => {
   if (petWin && !petWin.isDestroyed()) petWin.setIgnoreMouseEvents(v, { forward: true });
 });
-ipcMain.on('move-pet', (_, { x, y }) => {
+// 드래그 시작 좌표는 메인이 직접 조회 (렌더러의 window.screenX는 이동 직후 스테일할 수 있음)
+let dragStart = null;
+ipcMain.on('drag-start', () => { dragStart = petWin.getPosition(); });
+ipcMain.on('move-pet', (_, { dx, dy }) => {
+  if (!dragStart) return;
   if (bubbleWin && !bubbleWin.isDestroyed()) bubbleWin.hide(); // 드래그 중엔 말풍선 숨김
-  petWin.setPosition(x, y);
+  petWin.setPosition(dragStart[0] + dx, dragStart[1] + dy);
 });
 ipcMain.on('bubble', (_, { html, duration }) => showBubble(html, duration));
 ipcMain.on('drag-end', () => {

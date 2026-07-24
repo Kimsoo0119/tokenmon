@@ -70,15 +70,16 @@ let down = null;
 let moved = false;
 sprite.addEventListener('pointerdown', (e) => {
   sprite.setPointerCapture(e.pointerId);
-  down = { sx: e.screenX, sy: e.screenY, wx: window.screenX, wy: window.screenY };
+  down = { sx: e.screenX, sy: e.screenY };
   moved = false;
+  ipcRenderer.send('drag-start'); // 시작 좌표는 메인이 getPosition으로 잡음
 });
 sprite.addEventListener('pointermove', (e) => {
   if (!down) return;
   const dx = e.screenX - down.sx;
   const dy = e.screenY - down.sy;
   if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
-  if (moved) ipcRenderer.send('move-pet', { x: Math.round(down.wx + dx), y: Math.round(down.wy + dy) });
+  if (moved) ipcRenderer.send('move-pet', { dx: Math.round(dx), dy: Math.round(dy) });
 });
 sprite.addEventListener('pointerup', (e) => {
   try { sprite.releasePointerCapture(e.pointerId); } catch { /* 이미 해제됨 */ }

@@ -13,7 +13,7 @@
     font-variant-numeric: tabular-nums; color: #ffb340; }
   #bubble b.notice { font: inherit; font-weight: 700; color: #7ec8ff; }
   @keyframes pop { from { opacity: 0; transform: scale(.94); } }
-  #bubble::after { content: ''; position: absolute; left: 50%; transform: translateX(-50%);
+  #bubble::after { content: ''; position: absolute; left: var(--tail, 50%); transform: translateX(-50%);
     border: 5px solid transparent; }
   body:not(.below) #bubble::after { top: 100%; border-top-color: rgba(24,24,27,.95); }
   body.below #bubble::after { bottom: 100%; border-bottom-color: rgba(24,24,27,.95); }
@@ -22,12 +22,16 @@
 <script>
   const { ipcRenderer } = require('electron');
   const b = document.getElementById('bubble');
-  ipcRenderer.on('bubble-content', (_, { html, below }) => {
+  ipcRenderer.on('bubble-content', (_, { html, below, tailX }) => {
     document.body.classList.toggle('below', below);
     b.hidden = false;
     b.style.animation = 'none';
     void b.offsetWidth; // 애니메이션 재시작
     b.style.animation = '';
     b.innerHTML = html; // 내용은 메인/펫 프로세스에서 이스케이프 완료
+    // 꼬리가 항상 펫 중심을 가리키게 (tailX는 창 기준 px)
+    const r = b.getBoundingClientRect();
+    const t = Math.min(Math.max(tailX - r.left, 12), r.width - 12);
+    b.style.setProperty('--tail', `${t}px`);
   });
 </script>
