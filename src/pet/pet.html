@@ -21,6 +21,33 @@
     100% { transform: translateX(0); }
   }
   #empty { font-size: 64px; cursor: default; margin-bottom: 30px; }
+  /* 에이전트 작업 중 몬스터볼 (CSS로 그림) */
+  #ball { width: 56px; height: 56px; border-radius: 50%; position: relative;
+    background: linear-gradient(to bottom, #e3350d 0 45%, #1c1c1e 45% 55%, #f2f2f2 55% 100%);
+    border: 2px solid #1c1c1e; box-sizing: border-box;
+    display: none; margin-bottom: 24px; cursor: grab; transform-origin: 50% 100%; }
+  #ball::after { content: ''; position: absolute; left: 50%; top: 50%;
+    width: 16px; height: 16px; transform: translate(-50%, -50%);
+    background: #fff; border: 3px solid #1c1c1e; border-radius: 50%; box-sizing: border-box; }
+  #ball.wobbling { animation: wobble 1.6s ease-in-out infinite; }
+  @keyframes wobble {
+    0%, 55%, 100% { transform: rotate(0); }
+    10% { transform: rotate(-14deg); }
+    25% { transform: rotate(12deg); }
+    40% { transform: rotate(-7deg); }
+    50% { transform: rotate(3deg); }
+  }
+  #ball.caught { animation: caught .5s ease; }
+  @keyframes caught {
+    0% { transform: scale(1); filter: brightness(1); }
+    30% { transform: scale(.9); filter: brightness(1.7); }
+    60% { transform: scale(1.04); }
+    100% { transform: scale(1); }
+  }
+  #ball.burst { animation: burst .3s ease-out forwards; }
+  @keyframes burst { to { transform: scale(1.8); opacity: 0; } }
+  #sprite.captured { animation: capture .4s ease-in forwards; }
+  @keyframes capture { to { transform: translateY(16px) scale(.08); opacity: 0; filter: brightness(3); } }
   #bubble { margin-bottom: 10px; position: relative;
     background: rgba(24,24,27,.95); color: #ececf0;
     border: 1px solid rgba(255,255,255,.12); border-radius: 10px;
@@ -44,6 +71,7 @@
   <div id="bubble"></div>
   <div id="empty" title="트레이 → 설정에서 몬스터를 추가하세요">🥚</div>
   <img id="sprite">
+  <div id="ball" title="클릭하면 나옵니다"></div>
   <div id="flash"></div>
 </div>
 <script src="pet.js"></script>

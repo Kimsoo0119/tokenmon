@@ -2,6 +2,7 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage } = require('electr
 const path = require('node:path');
 const fs = require('node:fs');
 const { loadConfig, saveConfig } = require('./config');
+const { parseEvent } = require('./events');
 const { stageIndex } = require('./evolution');
 const { fetchClaudeUsage } = require('./usage/claude');
 const { fetchCodexUsage } = require('./usage/codex');
@@ -137,9 +138,9 @@ function watchEvents() {
     offset = size;
     for (const line of buf.toString('utf8').split('\n')) {
       if (!line.trim()) continue;
-      let msg;
-      try { msg = JSON.parse(line).message; } catch { msg = line.trim(); }
-      if (msg && petWin && !petWin.isDestroyed()) petWin.webContents.send('notify', String(msg).slice(0, 80));
+      const ev = parseEvent(line);
+      if (ev.type === 'notify' && !ev.message) continue;
+      if (petWin && !petWin.isDestroyed()) petWin.webContents.send('agent-event', ev);
     }
   });
 }

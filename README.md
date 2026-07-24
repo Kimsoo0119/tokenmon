@@ -18,19 +18,52 @@ npm start
 - 펫: 드래그로 이동, 클릭하면 공격 모션 + 사용량 말풍선
 - 트레이 → 설정: 포켓몬 한글 이름으로 추가(진화체인 자동 인식), 커스텀 GIF 몬스터, 임계값 편집
 
-## Claude Code 알림 연동 (선택)
+## Claude Code 에이전트 연동 (선택)
 
-`~/Library/Application Support/tokenmon/events.jsonl`에 `{"message":"..."}` 한 줄이 추가되면 펫이 점프하며 말풍선으로 알려줍니다. Claude Code의 Notification 훅과 연결하려면 `~/.claude/settings.json`에 추가하세요:
+`~/Library/Application Support/tokenmon/events.jsonl`에 한 줄이 추가되면 펫이 반응합니다:
+
+- `{"type":"start"}` — 펫이 몬스터볼에 잡혀 들어가고, 작업 중인 동안 볼이 흔들림
+- `{"type":"done"}` — 볼이 딸깍! 잠긴 뒤 터지며 펫이 나옴 (작업 완료)
+- `{"type":"waiting","message":"..."}` — 볼이 터지며 펫이 탈출 (답변 대기 알림)
+- `{"message":"..."}` — 점프 + 말풍선 알림 (기존 방식)
+
+볼 상태가 꼬이면 볼을 클릭해 바로 꺼낼 수 있고, 30분 무이벤트 시 자동 복귀합니다.
+
+Claude Code 훅과 연결하려면 `~/.claude/settings.json`에 추가하세요:
 
 ```json
 {
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"type\":\"start\"}' >> \"$HOME/Library/Application Support/tokenmon/events.jsonl\"",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"type\":\"done\"}' >> \"$HOME/Library/Application Support/tokenmon/events.jsonl\"",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
     "Notification": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "jq -c '{message: .message}' >> \"$HOME/Library/Application Support/tokenmon/events.jsonl\" 2>/dev/null || true",
+            "command": "jq -c '{type: \"waiting\", message: .message}' >> \"$HOME/Library/Application Support/tokenmon/events.jsonl\" 2>/dev/null || true",
             "timeout": 5,
             "async": true
           }
