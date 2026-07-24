@@ -45,12 +45,17 @@ async function poll() {
 }
 
 function updateTray() {
-  if (lastError) return tray.setTitle(' ⚠️');
-  if (lastPercent == null) return tray.setTitle(' …');
+  // 아이콘: 현재 단계 스프라이트(GIF 첫 프레임), 타이틀: 주간 % = 레벨
   const m = cfg.monsters[cfg.activeMonster];
-  if (!m) return tray.setTitle(` ${Math.round(lastPercent)}%`);
-  const idx = stageIndex(m.thresholds, lastPercent);
-  tray.setTitle(` ${m.stages[idx].name} Lv.${idx + 1}`);
+  if (m && lastPercent != null) {
+    const idx = stageIndex(m.thresholds, lastPercent);
+    try {
+      tray.setImage(nativeImage.createFromPath(m.stages[idx].gif).resize({ height: 18 }));
+    } catch { tray.setImage(nativeImage.createEmpty()); }
+  } else {
+    tray.setImage(nativeImage.createEmpty());
+  }
+  tray.setTitle(lastError ? ' ⚠️' : lastPercent == null ? ' …' : ` Lv.${Math.round(lastPercent)}`);
 }
 
 function panelData() {
