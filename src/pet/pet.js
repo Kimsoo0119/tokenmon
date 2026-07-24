@@ -47,6 +47,8 @@ window.addEventListener('mouseup', () => {
   down = null;
 });
 
+sprite.addEventListener('animationend', () => sprite.classList.remove('attacking'));
+
 function attack() {
   sprite.classList.remove('attacking');
   void sprite.offsetWidth; // 애니메이션 재시작 트릭
