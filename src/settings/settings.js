@@ -8,6 +8,9 @@ const namesKo = require('../../assets/names-ko.json');
 
 const koBySlug = Object.fromEntries(Object.entries(namesKo).map(([k, v]) => [v, k]));
 const ko = (slug) => koBySlug[slug] || slug;
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+));
 
 const CONFIG_FILE = ipcRenderer.sendSync('get-config-path');
 const CACHE_DIR = path.join(path.dirname(CONFIG_FILE), 'cache');
@@ -28,9 +31,9 @@ function render() {
   for (const [id, m] of Object.entries(cfg.monsters)) {
     const li = document.createElement('li');
     li.innerHTML = `
-      <label><input type="radio" name="active"> <b>${m.displayName}</b></label>
-      ${m.stages.map((s) => s.name).join(' → ')}
-      임계값: <input class="thr" value="${m.thresholds.join(',')}">
+      <label><input type="radio" name="active"> <b>${esc(m.displayName)}</b></label>
+      ${m.stages.map((s) => esc(s.name)).join(' → ')}
+      임계값: <input class="thr" value="${esc(m.thresholds.join(','))}">
       <button class="thr-save">저장</button> <button class="del">삭제</button>`;
     const radio = li.querySelector('input[name=active]');
     radio.checked = id === cfg.activeMonster;
@@ -65,7 +68,7 @@ $('poke-lookup').onclick = async () => {
     const slug = resolveSlug($('poke-name').value, namesKo);
     paths = await fetchEvolutionPaths(slug);
     $('poke-paths').innerHTML = paths
-      .map((p, i) => `<option value="${i}">${p.map(ko).join(' → ')}</option>`).join('');
+      .map((p, i) => `<option value="${i}">${esc(p.map(ko).join(' → '))}</option>`).join('');
     $('poke-paths').hidden = $('poke-add').hidden = false;
     $('poke-status').textContent = '';
   } catch (e) {
