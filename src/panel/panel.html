@@ -11,10 +11,11 @@
     --field: rgba(255, 255, 255, .06);
     --field-line: rgba(255, 255, 255, .12);
     --mono: ui-monospace, 'SF Mono', Menlo, monospace;
+    --sans: 'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo', sans-serif;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; background: transparent; overflow: hidden; }
-  body { font: 13px/1.45 -apple-system, 'Apple SD Gothic Neo', sans-serif;
+  body { font: 13px/1.45 var(--sans);
     color: var(--text); -webkit-font-smoothing: antialiased; }
 
   #card { background: linear-gradient(180deg, rgba(38,38,42,.97), var(--bg) 120px);
@@ -45,7 +46,7 @@
   .btns { display: flex; gap: 7px; margin-top: 14px; }
   button { flex: 1; background: var(--field); color: var(--text);
     border: 1px solid var(--field-line); border-radius: 9px; padding: 6px 0;
-    font: 500 12px -apple-system, 'Apple SD Gothic Neo', sans-serif; cursor: pointer;
+    font: 500 12px var(--sans); cursor: pointer;
     transition: background .12s, border-color .12s; }
   button:hover { background: rgba(255,255,255,.11); border-color: rgba(255,255,255,.18); }
   button:active { background: rgba(255,255,255,.15); }
@@ -64,7 +65,7 @@
   input[type=radio], input[type=range] { accent-color: var(--accent); }
   #settings-sec input[type=text] { width: 152px; background: var(--field); color: var(--text);
     border: 1px solid var(--field-line); border-radius: 8px; padding: 5px 9px;
-    font: 12.5px -apple-system, 'Apple SD Gothic Neo', sans-serif; outline: none;
+    font: 12.5px var(--sans); outline: none;
     transition: border-color .12s; }
   #settings-sec input[type=text]:focus { border-color: var(--accent); }
   #settings-sec input[type=text]::placeholder { color: var(--faint); }
@@ -81,7 +82,12 @@
   #settings-sec .hint { color: var(--faint); font-size: 11px; margin-top: 4px; }
   #pet-size-label { font: 12px var(--mono); color: var(--muted); margin-left: 6px; }
   #poke-status { margin-left: 6px; color: var(--muted); font-size: 12px; }
-  input[type=file] { color: var(--muted); font-size: 11px; }
+  input[type=file] { color: var(--muted); font: 11px var(--sans); }
+  input[type=file]::file-selector-button { background: var(--field); color: var(--text);
+    border: 1px solid var(--field-line); border-radius: 8px; padding: 5px 12px;
+    margin-right: 9px; cursor: pointer; font: 500 12px var(--sans);
+    transition: background .12s; }
+  input[type=file]::file-selector-button:hover { background: rgba(255,255,255,.11); }
 </style>
 <div id="card">
   <h1><span>tokenmon <span class="src" id="src"></span></span><span class="err" id="err"></span></h1>
