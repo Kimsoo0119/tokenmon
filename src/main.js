@@ -2,7 +2,7 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen } = require
 const path = require('node:path');
 const fs = require('node:fs');
 const { loadConfig, saveConfig } = require('./config');
-const { stageIndex } = require('./evolution');
+const { stageIndex, evenThresholds } = require('./evolution');
 const { fetchClaudeUsage } = require('./usage/claude');
 const { fetchCodexUsage } = require('./usage/codex');
 
@@ -180,6 +180,33 @@ function openSettings() {
   settingsWin.loadFile(path.join(__dirname, 'settings', 'settings.html'));
 }
 
+// 첫 실행(몬스터 없음)이면 피카츄 라인을 기본 스타터로 자동 등록. 실패(오프라인)해도 무해
+async function seedDefaultMonster() {
+  if (Object.keys(cfg.monsters).length > 0) return;
+  try {
+    const { fetchEvolutionPaths, downloadGif } = require('./pokeapi');
+    const namesKo = require('../assets/names-ko.json');
+    const koBySlug = Object.fromEntries(Object.entries(namesKo).map(([k, v]) => [v, k]));
+    const line = (await fetchEvolutionPaths('pikachu'))[0]; // pichu → pikachu → raichu
+    const cacheDir = path.join(app.getPath('userData'), 'cache');
+    const stages = [];
+    for (const slug of line) {
+      stages.push({ name: koBySlug[slug] || slug, gif: await downloadGif(slug, cacheDir) });
+    }
+    if (Object.keys(cfg.monsters).length > 0) return; // 그 사이 사용자가 추가했으면 양보
+    cfg.monsters[line.join('-')] = {
+      displayName: koBySlug[line[line.length - 1]] || line[line.length - 1],
+      stages,
+      thresholds: evenThresholds(stages.length),
+    };
+    cfg.activeMonster = line.join('-');
+    saveConfig(configFile(), cfg);
+    updateTray();
+    pushState();
+    pushPanel();
+  } catch { /* 오프라인 등: 알 상태 유지, 설정에서 수동 추가 가능 */ }
+}
+
 // 외부 알림: events.jsonl에 한 줄 추가되면 펫이 알림 (Claude Code Notification 훅 등)
 function watchEvents() {
   const file = path.join(app.getPath('userData'), 'events.jsonl');
@@ -226,6 +253,7 @@ app.whenReady().then(() => {
   createPetWindow();
   createBubbleWindow();
   watchEvents();
+  seedDefaultMonster();
   poll();
   setInterval(poll, (cfg.pollIntervalMin || 5) * 60 * 1000);
 });
@@ -266,6 +294,7 @@ ipcMain.on('move-pet', (_, { dx, dy }) => {
   petWin.setPosition(dragStart[0] + dx, dragStart[1] + dy);
 });
 ipcMain.on('bubble', (_, { html, duration }) => showBubble(html, duration));
+ipcMain.on('open-settings', openSettings);
 ipcMain.on('bubble-debug', (_, d) => console.log('[bubble-render]', JSON.stringify(d)));
 ipcMain.on('drag-end', () => {
   const [x, y] = petWin.getPosition();

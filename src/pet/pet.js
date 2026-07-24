@@ -90,6 +90,9 @@ sprite.addEventListener('pointerup', (e) => {
 sprite.addEventListener('pointercancel', () => { down = null; });
 window.addEventListener('blur', () => { down = null; });
 
+// 알 상태에서 클릭하면 설정을 열어줌 (첫 실행 온보딩)
+empty.addEventListener('click', () => ipcRenderer.send('open-settings'));
+
 sprite.addEventListener('animationend', () => sprite.classList.remove('attacking', 'notifying'));
 
 // 외부 알림(Claude Code 훅 등): 점프 + 말풍선. 메시지는 외부 입력이라 이스케이프 필수
