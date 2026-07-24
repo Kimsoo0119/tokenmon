@@ -64,21 +64,24 @@ function pushPanel() {
   if (panelWin && !panelWin.isDestroyed()) panelWin.webContents.send('panel-data', panelData());
 }
 
+const PANEL_W = 340;
+let panelPinned = false; // 설정 섹션 펼친 동안 blur로 닫히지 않게
+
 function createPanelWindow() {
   panelWin = new BrowserWindow({
-    width: 300, height: 320, show: false, frame: false, resizable: false,
+    width: PANEL_W, height: 320, show: false, frame: false, resizable: false,
     transparent: true, alwaysOnTop: true, skipTaskbar: true, hasShadow: true,
     webPreferences: { nodeIntegration: true, contextIsolation: false },
   });
   panelWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   panelWin.loadFile(path.join(__dirname, 'panel', 'panel.html'));
-  panelWin.on('blur', () => panelWin.hide());
+  panelWin.on('blur', () => { if (!panelPinned) panelWin.hide(); });
 }
 
 function togglePanel() {
   if (panelWin.isVisible()) return panelWin.hide();
   const b = tray.getBounds();
-  panelWin.setPosition(Math.round(b.x + b.width / 2 - 150), Math.round(b.y + b.height + 4));
+  panelWin.setPosition(Math.round(b.x + b.width / 2 - PANEL_W / 2), Math.round(b.y + b.height + 4));
   pushPanel();
   panelWin.show();
 }
@@ -129,8 +132,12 @@ app.whenReady().then(() => {
 
 ipcMain.on('get-config-path', (e) => { e.returnValue = configFile(); });
 ipcMain.on('panel-refresh', poll);
-ipcMain.on('panel-settings', () => { panelWin.hide(); openSettings(); });
 ipcMain.on('panel-quit', () => app.quit());
+ipcMain.on('panel-pinned', (_, v) => { panelPinned = !!v; });
+ipcMain.on('panel-resize', (_, h) => {
+  const [x, y] = panelWin.getPosition();
+  panelWin.setBounds({ x, y, width: PANEL_W, height: h });
+});
 ipcMain.on('config-changed', () => {
   cfg = loadConfig(configFile());
   if (petWin && !petWin.isDestroyed()) {

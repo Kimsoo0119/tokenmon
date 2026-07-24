@@ -1,46 +1,57 @@
-const { ipcRenderer } = require('electron');
+// settings.js와 같은 전역을 공유하므로 IIFE로 격리 (const 재선언 충돌 방지)
+(() => {
+  const { ipcRenderer } = require('electron');
 
-const $ = (id) => document.getElementById(id);
+  const q = (id) => document.getElementById(id);
 
-const fmtReset = (ms) => ms
-  ? '리셋 ' + new Date(ms).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-  : '';
+  const fmtReset = (ms) => ms
+    ? '리셋 ' + new Date(ms).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : '';
 
-function setBar(prefix, pct, resetsAt) {
-  const has = typeof pct === 'number';
-  $(`${prefix}-pct`).textContent = has ? `${Math.round(pct)}%` : '—';
-  const bar = $(`${prefix}-bar`);
-  bar.style.width = has ? `${Math.min(100, pct)}%` : '0%';
-  bar.className = pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : '';
-  $(`${prefix}-reset`).textContent = has ? fmtReset(resetsAt) : '';
-}
-
-ipcRenderer.on('panel-data', (_, d) => {
-  $('src').textContent = d.source === 'codex' ? 'Codex' : 'Claude';
-  $('err').textContent = d.error ? '⚠️ 조회 실패' : '';
-  setBar('fh', d.usage?.fiveHour?.pct, d.usage?.fiveHour?.resetsAt);
-  setBar('wk', d.usage?.weekly?.pct, d.usage?.weekly?.resetsAt);
-
-  if (d.monster && d.usage) {
-    const m = d.monster;
-    const pct = d.usage.weekly.pct;
-    $('mon-name').innerHTML = `<b>${m.stageName}</b>`;
-    $('mon-stage').textContent = `${m.stageIdx + 1}/${m.stageCount}단계`;
-    if (m.nextThreshold != null) {
-      $('mon-bar').style.width = `${Math.min(100, (pct / m.nextThreshold) * 100)}%`;
-      $('mon-next').textContent = `진화까지 ${Math.max(0, Math.ceil(m.nextThreshold - pct))}%p`;
-    } else {
-      $('mon-bar').style.width = '100%';
-      $('mon-next').textContent = '최종 진화';
-    }
-  } else {
-    $('mon-name').textContent = '몬스터 없음';
-    $('mon-stage').textContent = '';
-    $('mon-bar').style.width = '0%';
-    $('mon-next').textContent = '';
+  function setBar(prefix, pct, resetsAt) {
+    const has = typeof pct === 'number';
+    q(`${prefix}-pct`).textContent = has ? `${Math.round(pct)}%` : '—';
+    const bar = q(`${prefix}-bar`);
+    bar.style.width = has ? `${Math.min(100, pct)}%` : '0%';
+    bar.className = pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : '';
+    q(`${prefix}-reset`).textContent = has ? fmtReset(resetsAt) : '';
   }
-});
 
-$('refresh').onclick = () => ipcRenderer.send('panel-refresh');
-$('settings').onclick = () => ipcRenderer.send('panel-settings');
-$('quit').onclick = () => ipcRenderer.send('panel-quit');
+  ipcRenderer.on('panel-data', (_, d) => {
+    q('src').textContent = d.source === 'codex' ? 'Codex' : 'Claude';
+    q('err').textContent = d.error ? '⚠️ 조회 실패' : '';
+    setBar('fh', d.usage?.fiveHour?.pct, d.usage?.fiveHour?.resetsAt);
+    setBar('wk', d.usage?.weekly?.pct, d.usage?.weekly?.resetsAt);
+
+    if (d.monster && d.usage) {
+      const m = d.monster;
+      const pct = d.usage.weekly.pct;
+      q('mon-name').innerHTML = `<b>${m.stageName}</b>`;
+      q('mon-stage').textContent = `${m.stageIdx + 1}/${m.stageCount}단계`;
+      if (m.nextThreshold != null) {
+        q('mon-bar').style.width = `${Math.min(100, (pct / m.nextThreshold) * 100)}%`;
+        q('mon-next').textContent = `진화까지 ${Math.max(0, Math.ceil(m.nextThreshold - pct))}%p`;
+      } else {
+        q('mon-bar').style.width = '100%';
+        q('mon-next').textContent = '최종 진화';
+      }
+    } else {
+      q('mon-name').textContent = '몬스터 없음';
+      q('mon-stage').textContent = '';
+      q('mon-bar').style.width = '0%';
+      q('mon-next').textContent = '';
+    }
+  });
+
+  // 설정 섹션 접기/펼치기 (펼친 동안엔 blur로 안 닫히게 pin)
+  const sec = q('settings-sec');
+  q('settings').onclick = () => {
+    sec.hidden = !sec.hidden;
+    q('settings').textContent = sec.hidden ? '설정 ▾' : '설정 ▴';
+    ipcRenderer.send('panel-pinned', !sec.hidden);
+    ipcRenderer.send('panel-resize', sec.hidden ? 320 : 680);
+  };
+
+  q('refresh').onclick = () => ipcRenderer.send('panel-refresh');
+  q('quit').onclick = () => ipcRenderer.send('panel-quit');
+})();

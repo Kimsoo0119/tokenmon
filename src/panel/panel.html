@@ -18,6 +18,23 @@
   button { flex: 1; background: #3a3a3e; color: #eee; border: 0; border-radius: 8px;
     padding: 7px 0; font: 12px -apple-system; cursor: pointer; }
   button:hover { background: #4a4a4e; }
+  /* 인라인 설정 섹션 */
+  #settings-sec { border-top: 1px solid rgba(255,255,255,.1); margin-top: 12px;
+    padding-top: 4px; max-height: 430px; overflow-y: auto; }
+  #settings-sec section { margin: 10px 0; }
+  #settings-sec h2 { font-size: 12px; color: #aaa; margin: 0 0 6px; font-weight: 600; }
+  #settings-sec label { margin-right: 10px; }
+  #settings-sec input[type=text] { width: 150px; background: #2a2a2e; color: #eee;
+    border: 1px solid #4a4a4e; border-radius: 6px; padding: 4px 8px; }
+  #settings-sec .thr { width: 70px; background: #2a2a2e; color: #eee;
+    border: 1px solid #4a4a4e; border-radius: 6px; padding: 3px 6px; }
+  #settings-sec select { background: #2a2a2e; color: #eee; border: 1px solid #4a4a4e;
+    border-radius: 6px; padding: 3px; max-width: 280px; }
+  #settings-sec button { flex: none; padding: 4px 10px; }
+  #settings-sec ul { padding: 0; margin: 0; }
+  #settings-sec li { margin: 8px 0; list-style: none; line-height: 1.8; }
+  #settings-sec .hint { color: #777; font-size: 11px; margin-top: 3px; }
+  #poke-status { margin-left: 6px; color: #aaa; font-size: 12px; }
 </style>
 <div id="card">
   <h1><span>tokenmon <span class="src" id="src"></span></span><span class="err" id="err"></span></h1>
@@ -38,8 +55,43 @@
   </div>
   <div class="btns">
     <button id="refresh">새로고침</button>
-    <button id="settings">설정</button>
+    <button id="settings">설정 ▾</button>
     <button id="quit">종료</button>
+  </div>
+  <div id="settings-sec" hidden>
+    <section>
+      <h2>사용량 소스</h2>
+      <label><input type="radio" name="source" value="claude"> Claude</label>
+      <label><input type="radio" name="source" value="codex"> Codex</label>
+    </section>
+    <section>
+      <h2>펫 크기</h2>
+      <input id="pet-size" type="range" min="60" max="400" step="10" style="width:200px;vertical-align:middle">
+      <span id="pet-size-label"></span>
+    </section>
+    <section>
+      <h2>포켓몬 추가</h2>
+      <input id="poke-name" type="text" placeholder="한글 이름 (예: 피카츄)">
+      <button id="poke-lookup">불러오기</button>
+      <span id="poke-status"></span>
+      <div style="margin-top:6px">
+        <select id="poke-paths" hidden></select>
+        <button id="poke-add" hidden>추가</button>
+      </div>
+    </section>
+    <section>
+      <h2>커스텀 몬스터 (GIF 직접 지정)</h2>
+      <input id="custom-name" type="text" placeholder="이름">
+      <input id="custom-files" type="file" accept=".gif" multiple style="color:#aaa;font-size:11px">
+      <button id="custom-add">추가</button>
+      <div class="hint">파일명 정렬 순서 = 진화 순서</div>
+    </section>
+    <section>
+      <h2>몬스터 목록</h2>
+      <ul id="monsters"></ul>
+      <div class="hint">임계값: 쉼표 구분, 오름차순, 개수 = 단계 수 - 1</div>
+    </section>
   </div>
 </div>
 <script src="panel.js"></script>
+<script src="../settings/settings.js"></script>
