@@ -99,7 +99,8 @@ let panelPinned = false; // 설정 섹션 펼친 동안 blur로 닫히지 않게
 function createPanelWindow() {
   panelWin = new BrowserWindow({
     width: PANEL_W, height: 320, show: false, frame: false, resizable: false,
-    transparent: true, alwaysOnTop: true, skipTaskbar: true, hasShadow: true,
+    transparent: true, alwaysOnTop: true, skipTaskbar: true,
+    hasShadow: false, // 투명 창 + 리사이즈에서 OS 그림자가 유령 사각형을 남김 — CSS 그림자만 사용
     webPreferences: { nodeIntegration: true, contextIsolation: false },
   });
   panelWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
