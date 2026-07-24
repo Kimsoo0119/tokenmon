@@ -58,7 +58,8 @@ function attack() {
   void sprite.offsetWidth; // 애니메이션 재시작 트릭
   sprite.classList.add('attacking');
   if (!state) return;
-  bubble.textContent = state.error
+  // bubbleText는 내부 숫자/고정 문자열만 조합하므로 innerHTML 안전
+  bubble.innerHTML = state.error
     ? '⚠️ 조회 실패 · 마지막 값 표시 중'
     : bubbleText();
   bubble.style.display = 'block';
@@ -69,6 +70,6 @@ function attack() {
 function bubbleText() {
   const p = Math.round(state.percent);
   return state.nextThreshold == null
-    ? `주간 ${p}% · 최종 진화!`
-    : `주간 ${p}% · 진화까지 ${Math.max(0, Math.ceil(state.nextThreshold - state.percent))}%p`;
+    ? `주간 <b>${p}%</b> · 최종 진화!`
+    : `주간 <b>${p}%</b> · 진화까지 <b>${Math.max(0, Math.ceil(state.nextThreshold - state.percent))}%p</b>`;
 }
