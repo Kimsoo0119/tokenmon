@@ -11,7 +11,7 @@ const DEFAULTS = {
 
 function loadConfig(file) {
   try {
-    return { ...DEFAULTS, ...JSON.parse(fs.readFileSync(file, 'utf8')) };
+    return { ...structuredClone(DEFAULTS), ...JSON.parse(fs.readFileSync(file, 'utf8')) };
   } catch {
     return structuredClone(DEFAULTS);
   }

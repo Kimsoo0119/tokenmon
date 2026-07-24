@@ -28,3 +28,10 @@ test('부분 저장된 설정에 기본값 병합', () => {
   fs.writeFileSync(f, JSON.stringify({ source: 'codex' }));
   assert.equal(loadConfig(f).pollIntervalMin, 5);
 });
+test('loadConfig 결과 변형이 DEFAULTS를 오염시키지 않음', () => {
+  const f = tmp();
+  fs.writeFileSync(f, JSON.stringify({ source: 'codex' }));
+  const cfg = loadConfig(f);
+  cfg.monsters.x = { displayName: 'x' };
+  assert.deepEqual(DEFAULTS.monsters, {});
+});
