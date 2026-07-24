@@ -32,13 +32,35 @@ function pushState() {
   if (petWin && !petWin.isDestroyed()) petWin.webContents.send('state', currentState());
 }
 
+let claudeBackoffUntil = 0; // usage API가 429를 주면 retry-after까지 조회 중단
+
+// 성공 조회값을 config에 캐시 — 재시작 직후 백오프여도 펫이 바로 보이게
+function persistUsage(u) {
+  cfg.lastUsage = u;
+  saveConfig(configFile(), cfg);
+}
+
 async function poll() {
   try {
-    const u = cfg.source === 'codex' ? await fetchCodexUsage() : await fetchClaudeUsage();
-    if (u) { lastUsage = u; lastPercent = u.weekly.pct; }
-    lastError = u == null;
-  } catch {
-    lastError = true; // 마지막 성공 값 유지
+    if (cfg.source === 'codex') {
+      const u = await fetchCodexUsage();
+      if (u) { lastUsage = u; lastPercent = u.weekly.pct; persistUsage(u); }
+      lastError = u == null;
+    } else if (Date.now() >= claudeBackoffUntil) {
+      const u = await fetchClaudeUsage();
+      lastUsage = u;
+      lastPercent = u.weekly.pct;
+      lastError = false;
+      persistUsage(u);
+    }
+    // 백오프 중이면 호출 없이 마지막 값 유지
+  } catch (e) {
+    if (e && e.rateLimited) {
+      claudeBackoffUntil = Date.now() + (e.retryAfterMs || 3_600_000) + 30_000;
+      lastError = lastPercent == null; // 표시할 값이 하나도 없을 때만 경고
+    } else {
+      lastError = true; // 마지막 성공 값 유지
+    }
   }
   updateTray();
   pushState();
@@ -128,6 +150,7 @@ function showBubble(html, duration = 2500) {
     y: below ? p.y + p.height - 8 : p.y - BUBBLE_H + 8,
     width: BUBBLE_W, height: BUBBLE_H,
   });
+  console.log('[bubble]', JSON.stringify({ pet: p, workArea: wa, bx, below, tailX: Math.round(petCenterX - bx) }));
   bubbleWin.webContents.send('bubble-content', { html, below, tailX: Math.round(petCenterX - bx) });
   bubbleWin.showInactive();
   clearTimeout(bubbleTimer);
@@ -185,6 +208,10 @@ function watchEvents() {
 app.whenReady().then(() => {
   if (app.dock) app.dock.hide();
   cfg = loadConfig(configFile());
+  if (cfg.lastUsage && cfg.lastUsage.weekly) {
+    lastUsage = cfg.lastUsage;
+    lastPercent = cfg.lastUsage.weekly.pct; // 첫 폴링 전/백오프 중에도 마지막 값으로 표시
+  }
   tray = new Tray(nativeImage.createEmpty());
   tray.setTitle(' …');
   const menu = Menu.buildFromTemplate([
@@ -239,6 +266,7 @@ ipcMain.on('move-pet', (_, { dx, dy }) => {
   petWin.setPosition(dragStart[0] + dx, dragStart[1] + dy);
 });
 ipcMain.on('bubble', (_, { html, duration }) => showBubble(html, duration));
+ipcMain.on('bubble-debug', (_, d) => console.log('[bubble-render]', JSON.stringify(d)));
 ipcMain.on('drag-end', () => {
   const [x, y] = petWin.getPosition();
   cfg.petPosition = { x, y };
