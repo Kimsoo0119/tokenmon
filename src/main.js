@@ -39,9 +39,18 @@ async function poll() {
   } catch {
     lastError = true; // 마지막 성공 값 유지
   }
-  tray.setTitle(lastError ? ' ⚠️' : lastPercent == null ? ' …' : ` ${Math.round(lastPercent)}%`);
+  updateTray();
   pushState();
   pushPanel();
+}
+
+function updateTray() {
+  if (lastError) return tray.setTitle(' ⚠️');
+  if (lastPercent == null) return tray.setTitle(' …');
+  const m = cfg.monsters[cfg.activeMonster];
+  if (!m) return tray.setTitle(` ${Math.round(lastPercent)}%`);
+  const idx = stageIndex(m.thresholds, lastPercent);
+  tray.setTitle(` ${m.stages[idx].name} Lv.${idx + 1}`);
 }
 
 function panelData() {
@@ -87,11 +96,13 @@ function togglePanel() {
   panelWin.show();
 }
 
-const petWinSize = () => (cfg.petSize || 140) + 60; // 말풍선 공간 포함
+// 말풍선이 안 짤리게 최소 너비 확보. 투명 영역 클릭은 ignore-mouse IPC로 통과시킴
+const petWinW = () => Math.max((cfg.petSize || 140) + 60, 380);
+const petWinH = () => (cfg.petSize || 140) + 90;
 
 function createPetWindow() {
   petWin = new BrowserWindow({
-    width: petWinSize(), height: petWinSize(),
+    width: petWinW(), height: petWinH(),
     transparent: true, frame: false, resizable: false,
     alwaysOnTop: true, hasShadow: false, skipTaskbar: true,
     webPreferences: { nodeIntegration: true, contextIsolation: false },
@@ -169,10 +180,14 @@ ipcMain.on('config-changed', () => {
   cfg = loadConfig(configFile());
   if (petWin && !petWin.isDestroyed()) {
     const [x, y] = petWin.getPosition();
-    petWin.setBounds({ x, y, width: petWinSize(), height: petWinSize() });
+    petWin.setBounds({ x, y, width: petWinW(), height: petWinH() });
   }
+  updateTray();
   pushState();
   pushPanel();
+});
+ipcMain.on('ignore-mouse', (_, v) => {
+  if (petWin && !petWin.isDestroyed()) petWin.setIgnoreMouseEvents(v, { forward: true });
 });
 ipcMain.on('move-pet', (_, { x, y }) => petWin.setPosition(x, y));
 ipcMain.on('drag-end', () => {

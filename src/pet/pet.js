@@ -31,6 +31,17 @@ ipcRenderer.on('state', (_, s) => {
 
 function setGif() { sprite.src = 'file://' + currentGif; }
 
+// 창이 말풍선 폭만큼 넓어서, 스프라이트/말풍선 밖 투명 영역은 클릭을 아래로 통과시킴
+let ignoringMouse = false;
+document.addEventListener('mousemove', (e) => {
+  if (down) return; // 드래그 중엔 항상 이벤트 수신
+  const interactive = e.target === sprite || e.target === bubble || e.target === empty;
+  if (ignoringMouse === interactive) {
+    ignoringMouse = !interactive;
+    ipcRenderer.send('ignore-mouse', ignoringMouse);
+  }
+});
+
 // 드래그(이동) vs 클릭(공격 + 툴팁) 구분: 4px 이상 움직이면 드래그
 let down = null;
 let moved = false;

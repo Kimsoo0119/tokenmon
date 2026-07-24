@@ -45,14 +45,17 @@
     }
   });
 
-  // 설정 섹션 접기/펼치기 (펼친 동안엔 blur로 안 닫히게 pin)
+  // 설정 섹션 접기/펼치기 (바깥 클릭 시 blur로 닫힘)
   const sec = q('settings-sec');
   q('settings').onclick = () => {
     sec.hidden = !sec.hidden;
     q('settings').textContent = sec.hidden ? '설정 ▾' : '설정 ▴';
-    ipcRenderer.send('panel-pinned', !sec.hidden);
     ipcRenderer.send('panel-resize', sec.hidden ? 320 : 680);
   };
+
+  // 파일 선택 대화상자가 떠 있는 동안만 blur 닫힘 방지
+  q('custom-files').addEventListener('click', () => ipcRenderer.send('panel-pinned', true));
+  window.addEventListener('focus', () => ipcRenderer.send('panel-pinned', false));
 
   q('refresh').onclick = () => ipcRenderer.send('panel-refresh');
   q('quit').onclick = () => ipcRenderer.send('panel-quit');
