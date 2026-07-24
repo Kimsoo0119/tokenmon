@@ -45,16 +45,7 @@ async function poll() {
 }
 
 function updateTray() {
-  // 아이콘: 현재 단계 스프라이트(GIF 첫 프레임), 타이틀: 주간 % = 레벨
-  const m = cfg.monsters[cfg.activeMonster];
-  if (m && lastPercent != null) {
-    const idx = stageIndex(m.thresholds, lastPercent);
-    try {
-      tray.setImage(nativeImage.createFromPath(m.stages[idx].gif).resize({ height: 18 }));
-    } catch { tray.setImage(nativeImage.createEmpty()); }
-  } else {
-    tray.setImage(nativeImage.createEmpty());
-  }
+  // 아이콘은 펫 창이 GIF 첫 프레임을 PNG로 떠서 tray-icon IPC로 보냄 (nativeImage는 GIF 미지원)
   tray.setTitle(lastError ? ' ⚠️' : lastPercent == null ? ' …' : ` Lv.${Math.round(lastPercent)}`);
 }
 
@@ -190,6 +181,12 @@ ipcMain.on('config-changed', () => {
   updateTray();
   pushState();
   pushPanel();
+});
+ipcMain.on('tray-icon', (_, dataUrl) => {
+  if (!tray) return;
+  try {
+    tray.setImage(dataUrl ? nativeImage.createFromDataURL(dataUrl).resize({ height: 18 }) : nativeImage.createEmpty());
+  } catch { tray.setImage(nativeImage.createEmpty()); }
 });
 ipcMain.on('ignore-mouse', (_, v) => {
   if (petWin && !petWin.isDestroyed()) petWin.setIgnoreMouseEvents(v, { forward: true });

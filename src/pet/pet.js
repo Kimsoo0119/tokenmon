@@ -29,7 +29,26 @@ ipcRenderer.on('state', (_, s) => {
   }
 });
 
-function setGif() { sprite.src = 'file://' + currentGif; }
+function setGif() {
+  sprite.src = 'file://' + currentGif;
+  sendTrayIcon();
+}
+
+// GIF 첫 프레임을 PNG로 떠서 트레이 아이콘으로 전달 (nativeImage는 GIF 미지원)
+function sendTrayIcon() {
+  const im = new Image();
+  im.onload = () => {
+    const c = document.createElement('canvas');
+    const scale = 36 / im.naturalHeight; // 레티나 대비 2x
+    c.width = Math.max(1, Math.round(im.naturalWidth * scale));
+    c.height = 36;
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(im, 0, 0, c.width, c.height);
+    ipcRenderer.send('tray-icon', c.toDataURL('image/png'));
+  };
+  im.src = 'file://' + currentGif;
+}
 
 // 창이 말풍선 폭만큼 넓어서, 스프라이트/말풍선 밖 투명 영역은 클릭을 아래로 통과시킴
 let ignoringMouse = false;
