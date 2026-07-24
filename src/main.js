@@ -60,7 +60,7 @@ function createPetWindow() {
 function openSettings() {
   if (settingsWin && !settingsWin.isDestroyed()) return settingsWin.focus();
   settingsWin = new BrowserWindow({
-    width: 560, height: 680, title: 'tokemon 설정',
+    width: 560, height: 680, title: 'tokenmon 설정',
     webPreferences: { nodeIntegration: true, contextIsolation: false },
   });
   settingsWin.loadFile(path.join(__dirname, 'settings', 'settings.html'));
