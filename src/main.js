@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage } = require('electron');
 const path = require('node:path');
+const fs = require('node:fs');
 const { loadConfig, saveConfig } = require('./config');
 const { stageIndex } = require('./evolution');
 const { fetchClaudeUsage } = require('./usage/claude');
@@ -111,6 +112,31 @@ function openSettings() {
   settingsWin.loadFile(path.join(__dirname, 'settings', 'settings.html'));
 }
 
+// 외부 알림: events.jsonl에 한 줄 추가되면 펫이 알림 (Claude Code Notification 훅 등)
+function watchEvents() {
+  const file = path.join(app.getPath('userData'), 'events.jsonl');
+  if (!fs.existsSync(file)) fs.writeFileSync(file, '');
+  let offset = fs.statSync(file).size;
+  fs.watch(path.dirname(file), (_, name) => {
+    if (name !== 'events.jsonl') return;
+    let size;
+    try { size = fs.statSync(file).size; } catch { return; }
+    if (size < offset) { offset = size; return; } // truncate 대응
+    if (size === offset) return;
+    const buf = Buffer.alloc(size - offset);
+    const fd = fs.openSync(file, 'r');
+    fs.readSync(fd, buf, 0, buf.length, offset);
+    fs.closeSync(fd);
+    offset = size;
+    for (const line of buf.toString('utf8').split('\n')) {
+      if (!line.trim()) continue;
+      let msg;
+      try { msg = JSON.parse(line).message; } catch { msg = line.trim(); }
+      if (msg && petWin && !petWin.isDestroyed()) petWin.webContents.send('notify', String(msg).slice(0, 80));
+    }
+  });
+}
+
 app.whenReady().then(() => {
   if (app.dock) app.dock.hide();
   cfg = loadConfig(configFile());
@@ -126,6 +152,7 @@ app.whenReady().then(() => {
   tray.on('right-click', () => tray.popUpContextMenu(menu));
   createPanelWindow();
   createPetWindow();
+  watchEvents();
   poll();
   setInterval(poll, (cfg.pollIntervalMin || 5) * 60 * 1000);
 });

@@ -6,6 +6,14 @@
   #sprite { width: 140px; height: 140px; object-fit: contain; image-rendering: pixelated;
     -webkit-user-drag: none; cursor: grab; display: none; }
   #sprite.attacking { animation: attack .35s ease-out; filter: brightness(1.8); }
+  #sprite.notifying { animation: jump .45s ease-out 2; }
+  @keyframes jump {
+    0%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-22px) scale(1.04); }
+    70% { transform: translateY(0); }
+    85% { transform: translateY(-6px); }
+  }
+  #bubble b.notice { color: #7ec8ff; font: inherit; font-weight: 700; }
   @keyframes attack {
     0% { transform: translateX(0); }
     35% { transform: translateX(26px) scale(1.08); }

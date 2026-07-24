@@ -18,6 +18,29 @@ npm start
 - 펫: 드래그로 이동, 클릭하면 공격 모션 + 사용량 말풍선
 - 트레이 → 설정: 포켓몬 한글 이름으로 추가(진화체인 자동 인식), 커스텀 GIF 몬스터, 임계값 편집
 
+## Claude Code 알림 연동 (선택)
+
+`~/Library/Application Support/tokenmon/events.jsonl`에 `{"message":"..."}` 한 줄이 추가되면 펫이 점프하며 말풍선으로 알려줍니다. Claude Code의 Notification 훅과 연결하려면 `~/.claude/settings.json`에 추가하세요:
+
+```json
+{
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -c '{message: .message}' >> \"$HOME/Library/Application Support/tokenmon/events.jsonl\" 2>/dev/null || true",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
 ## 데이터 출처
 
 - 스프라이트: [pokemondb.net](https://pokemondb.net) 애니메이션 GIF (개인 용도)

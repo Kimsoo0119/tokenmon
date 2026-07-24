@@ -51,7 +51,19 @@ window.addEventListener('mouseup', () => {
   down = null;
 });
 
-sprite.addEventListener('animationend', () => sprite.classList.remove('attacking'));
+sprite.addEventListener('animationend', () => sprite.classList.remove('attacking', 'notifying'));
+
+// 외부 알림(Claude Code 훅 등): 점프 + 말풍선. 메시지는 외부 입력이라 textContent로만 출력
+ipcRenderer.on('notify', (_, msg) => {
+  sprite.classList.remove('notifying');
+  void sprite.offsetWidth;
+  sprite.classList.add('notifying');
+  bubble.innerHTML = '<b class="notice">🔔</b> ';
+  bubble.appendChild(document.createTextNode(msg));
+  bubble.style.display = 'block';
+  clearTimeout(bubbleTimer);
+  bubbleTimer = setTimeout(() => { bubble.style.display = 'none'; }, 6000);
+});
 
 function attack() {
   sprite.classList.remove('attacking');
