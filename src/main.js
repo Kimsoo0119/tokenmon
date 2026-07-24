@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { loadConfig, saveConfig } = require('./config');
@@ -6,7 +6,8 @@ const { stageIndex } = require('./evolution');
 const { fetchClaudeUsage } = require('./usage/claude');
 const { fetchCodexUsage } = require('./usage/codex');
 
-let cfg, petWin, settingsWin, panelWin, tray;
+let cfg, petWin, settingsWin, panelWin, bubbleWin, tray;
+let bubbleTimer;
 let lastPercent = null;
 let lastUsage = null; // { fiveHour: {pct, resetsAt}|null, weekly: {pct, resetsAt} }
 let lastError = false;
@@ -92,9 +93,42 @@ function togglePanel() {
   panelWin.show();
 }
 
-// 말풍선이 안 짤리게 최소 너비 확보. 투명 영역 클릭은 ignore-mouse IPC로 통과시킴
-const petWinW = () => Math.max((cfg.petSize || 140) + 60, 380);
-const petWinH = () => (cfg.petSize || 140) + 90;
+// 말풍선은 별도 창이라 펫 창은 스프라이트 크기만큼만 차지 (화면 최상단까지 이동 가능)
+const petWinW = () => (cfg.petSize || 140) + 16;
+const petWinH = () => (cfg.petSize || 140) + 16;
+
+const BUBBLE_W = 380;
+const BUBBLE_H = 76;
+
+function createBubbleWindow() {
+  bubbleWin = new BrowserWindow({
+    width: BUBBLE_W, height: BUBBLE_H, show: false, frame: false,
+    transparent: true, alwaysOnTop: true, skipTaskbar: true, hasShadow: false,
+    focusable: false,
+    webPreferences: { nodeIntegration: true, contextIsolation: false },
+  });
+  bubbleWin.setAlwaysOnTop(true, 'screen-saver');
+  bubbleWin.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  bubbleWin.setIgnoreMouseEvents(true);
+  bubbleWin.loadFile(path.join(__dirname, 'pet', 'bubble.html'));
+}
+
+// 펫 위치 기준으로 위/아래 방향을 정해 말풍선 표시
+function showBubble(html, duration = 2500) {
+  if (!bubbleWin || bubbleWin.isDestroyed() || !petWin || petWin.isDestroyed()) return;
+  const p = petWin.getBounds();
+  const workTop = screen.getDisplayNearestPoint({ x: p.x, y: p.y }).workArea.y;
+  const below = p.y - BUBBLE_H < workTop; // 위에 공간 없으면 아래로
+  bubbleWin.setBounds({
+    x: Math.round(p.x + p.width / 2 - BUBBLE_W / 2),
+    y: below ? p.y + p.height - 8 : p.y - BUBBLE_H + 8,
+    width: BUBBLE_W, height: BUBBLE_H,
+  });
+  bubbleWin.webContents.send('bubble-content', { html, below });
+  bubbleWin.showInactive();
+  clearTimeout(bubbleTimer);
+  bubbleTimer = setTimeout(() => { if (!bubbleWin.isDestroyed()) bubbleWin.hide(); }, duration);
+}
 
 function createPetWindow() {
   petWin = new BrowserWindow({
@@ -159,6 +193,7 @@ app.whenReady().then(() => {
   tray.on('right-click', () => tray.popUpContextMenu(menu));
   createPanelWindow();
   createPetWindow();
+  createBubbleWindow();
   watchEvents();
   poll();
   setInterval(poll, (cfg.pollIntervalMin || 5) * 60 * 1000);
@@ -191,7 +226,11 @@ ipcMain.on('tray-icon', (_, dataUrl) => {
 ipcMain.on('ignore-mouse', (_, v) => {
   if (petWin && !petWin.isDestroyed()) petWin.setIgnoreMouseEvents(v, { forward: true });
 });
-ipcMain.on('move-pet', (_, { x, y }) => petWin.setPosition(x, y));
+ipcMain.on('move-pet', (_, { x, y }) => {
+  if (bubbleWin && !bubbleWin.isDestroyed()) bubbleWin.hide(); // 드래그 중엔 말풍선 숨김
+  petWin.setPosition(x, y);
+});
+ipcMain.on('bubble', (_, { html, duration }) => showBubble(html, duration));
 ipcMain.on('drag-end', () => {
   const [x, y] = petWin.getPosition();
   cfg.petPosition = { x, y };

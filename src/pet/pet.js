@@ -1,11 +1,13 @@
 const { ipcRenderer } = require('electron');
 const sprite = document.getElementById('sprite');
 const empty = document.getElementById('empty');
-const bubble = document.getElementById('bubble');
 const flash = document.getElementById('flash');
 let state = null;
 let currentGif = null;
-let bubbleTimer;
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+));
 
 ipcRenderer.on('state', (_, s) => {
   state = s;
@@ -50,11 +52,11 @@ function sendTrayIcon() {
   im.src = 'file://' + currentGif;
 }
 
-// 창이 말풍선 폭만큼 넓어서, 스프라이트/말풍선 밖 투명 영역은 클릭을 아래로 통과시킴
+// 스프라이트 밖 투명 여백은 클릭을 아래로 통과시킴
 let ignoringMouse = false;
 document.addEventListener('mousemove', (e) => {
   if (down) return; // 드래그 중엔 항상 이벤트 수신
-  const interactive = e.target === sprite || e.target === bubble || e.target === empty;
+  const interactive = e.target === sprite || e.target === empty;
   if (ignoringMouse === interactive) {
     ignoringMouse = !interactive;
     ipcRenderer.send('ignore-mouse', ignoringMouse);
@@ -83,16 +85,12 @@ window.addEventListener('mouseup', () => {
 
 sprite.addEventListener('animationend', () => sprite.classList.remove('attacking', 'notifying'));
 
-// 외부 알림(Claude Code 훅 등): 점프 + 말풍선. 메시지는 외부 입력이라 textContent로만 출력
+// 외부 알림(Claude Code 훅 등): 점프 + 말풍선. 메시지는 외부 입력이라 이스케이프 필수
 ipcRenderer.on('notify', (_, msg) => {
   sprite.classList.remove('notifying');
   void sprite.offsetWidth;
   sprite.classList.add('notifying');
-  bubble.innerHTML = '<b class="notice">🔔</b> ';
-  bubble.appendChild(document.createTextNode(msg));
-  bubble.style.display = 'block';
-  clearTimeout(bubbleTimer);
-  bubbleTimer = setTimeout(() => { bubble.style.display = 'none'; }, 6000);
+  ipcRenderer.send('bubble', { html: '<b class="notice">🔔</b> ' + esc(msg), duration: 6000 });
 });
 
 function attack() {
@@ -100,13 +98,11 @@ function attack() {
   void sprite.offsetWidth; // 애니메이션 재시작 트릭
   sprite.classList.add('attacking');
   if (!state) return;
-  // bubbleText는 내부 숫자/고정 문자열만 조합하므로 innerHTML 안전
-  bubble.innerHTML = state.error
-    ? '⚠️ 조회 실패 · 마지막 값 표시 중'
-    : bubbleText();
-  bubble.style.display = 'block';
-  clearTimeout(bubbleTimer);
-  bubbleTimer = setTimeout(() => { bubble.style.display = 'none'; }, 2500);
+  // bubbleText는 내부 숫자/고정 문자열만 조합하므로 그대로 전달
+  ipcRenderer.send('bubble', {
+    html: state.error ? '⚠️ 조회 실패 · 마지막 값 표시 중' : bubbleText(),
+    duration: 2500,
+  });
 }
 
 function bubbleText() {
