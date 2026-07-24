@@ -1,4 +1,4 @@
-# tokemon
+# tokenmon
 
 Claude Code / Codex 주간 사용량에 따라 진화하는 macOS 데스크탑 펫.
 
