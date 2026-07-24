@@ -3,7 +3,10 @@ const { execFile } = require('node:child_process');
 function keychainCredentials() {
   return new Promise((resolve, reject) => {
     execFile('security', ['find-generic-password', '-s', 'Claude Code-credentials', '-w'],
-      (err, stdout) => (err ? reject(err) : resolve(JSON.parse(stdout))));
+      (err, stdout) => {
+        if (err) return reject(err);
+        try { resolve(JSON.parse(stdout)); } catch (e) { reject(e); }
+      });
   });
 }
 
