@@ -8,9 +8,31 @@
   #sprite.attacking { animation: attack .35s ease-out; filter: brightness(1.8); }
   @keyframes attack {
     0% { transform: translateX(0); }
-    35% { transform: translateX(26px) scale(1.08); }
-    65% { transform: translateX(-8px); }
+    35% { transform: translateX(-26px) scale(1.08); }
+    65% { transform: translateX(8px); }
     100% { transform: translateX(0); }
+  }
+  /* 스킬 이펙트 파티클 */
+  #fx { position: absolute; inset: 0; pointer-events: none; }
+  .proj { position: absolute; bottom: 32%; left: 42%; font-size: 20px;
+    animation: shoot .5s ease-in forwards; }
+  @keyframes shoot {
+    0% { opacity: 1; transform: translateX(0) scale(.8); }
+    100% { opacity: 0; transform: translateX(-95px) scale(1.3); }
+  }
+  .spark { position: absolute; font-size: 16px; opacity: 0;
+    animation: sparkPop .45s ease forwards; }
+  @keyframes sparkPop {
+    0% { opacity: 0; transform: scale(.4); }
+    40% { opacity: 1; transform: scale(1.25); }
+    100% { opacity: 0; transform: scale(.9) translateY(-10px); }
+  }
+  .slashfx { position: absolute; bottom: 36%; left: 18%; font-size: 22px; opacity: 0;
+    animation: slashPop .4s ease forwards; }
+  @keyframes slashPop {
+    0% { opacity: 0; transform: scale(.5) rotate(-25deg); }
+    30% { opacity: 1; transform: scale(1.35) rotate(0deg); }
+    100% { opacity: 0; transform: scale(1) rotate(12deg); }
   }
   #empty { font-size: 64px; cursor: default; margin-bottom: 30px; }
   #bubble { margin-bottom: 10px; position: relative;
@@ -35,6 +57,7 @@
   <div id="bubble"></div>
   <div id="empty" title="트레이 → 설정에서 몬스터를 추가하세요">🥚</div>
   <img id="sprite">
+  <div id="fx"></div>
   <div id="flash"></div>
 </div>
 <script src="pet.js"></script>

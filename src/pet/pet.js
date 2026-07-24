@@ -52,11 +52,41 @@ window.addEventListener('mouseup', () => {
 });
 
 sprite.addEventListener('animationend', () => sprite.classList.remove('attacking'));
+const fx = document.getElementById('fx');
 
-function attack() {
+function lunge() {
   sprite.classList.remove('attacking');
   void sprite.offsetWidth; // 애니메이션 재시작 트릭
   sprite.classList.add('attacking');
+}
+
+function particle(cls, emoji, style = {}) {
+  const el = document.createElement('div');
+  el.className = cls;
+  el.textContent = emoji;
+  Object.assign(el.style, style);
+  fx.appendChild(el);
+  el.addEventListener('animationend', () => el.remove());
+}
+
+const SKILLS = [
+  () => lunge(),                                    // 몸통박치기
+  () => { lunge(); particle('proj', '🔥'); },       // 화염탄
+  () => {                                           // 전기 스파크
+    lunge();
+    for (let i = 0; i < 3; i++) {
+      particle('spark', '⚡', {
+        left: `${28 + Math.random() * 44}%`,
+        bottom: `${22 + Math.random() * 48}%`,
+        animationDelay: `${i * 70}ms`,
+      });
+    }
+  },
+  () => { lunge(); particle('slashfx', '💢'); },    // 타격
+];
+
+function attack() {
+  SKILLS[Math.floor(Math.random() * SKILLS.length)]();
   if (!state) return;
   // bubbleText는 내부 숫자/고정 문자열만 조합하므로 innerHTML 안전
   bubble.innerHTML = state.error
