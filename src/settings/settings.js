@@ -61,6 +61,12 @@ document.querySelectorAll('input[name=source]').forEach((r) => {
   r.onchange = () => { cfg.source = r.value; save(); };
 });
 
+// --- 펫 크기 ---
+$('pet-size').value = cfg.petSize || 140;
+$('pet-size-label').textContent = `${cfg.petSize || 140}px`;
+$('pet-size').oninput = () => { $('pet-size-label').textContent = `${$('pet-size').value}px`; };
+$('pet-size').onchange = () => { cfg.petSize = +$('pet-size').value; save(); };
+
 // --- 포켓몬 추가 ---
 let paths = [];
 $('poke-lookup').onclick = async () => {

@@ -9,6 +9,10 @@ let bubbleTimer;
 
 ipcRenderer.on('state', (_, s) => {
   state = s;
+  if (s && s.petSize) {
+    sprite.style.maxWidth = s.petSize + 'px';
+    sprite.style.maxHeight = s.petSize + 'px';
+  }
   const has = !!(s && s.stage);
   empty.style.display = has ? 'none' : 'block';
   sprite.style.display = has ? 'block' : 'none';

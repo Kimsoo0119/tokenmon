@@ -21,6 +21,7 @@ function currentState() {
     stageIdx: idx,
     nextThreshold: m.thresholds[idx] ?? null,
     error: lastError,
+    petSize: cfg.petSize || 140,
   };
 }
 
@@ -40,9 +41,11 @@ async function poll() {
   pushState();
 }
 
+const petWinSize = () => (cfg.petSize || 140) + 60; // 말풍선 공간 포함
+
 function createPetWindow() {
   petWin = new BrowserWindow({
-    width: 200, height: 200,
+    width: petWinSize(), height: petWinSize(),
     transparent: true, frame: false, resizable: false,
     alwaysOnTop: true, hasShadow: false, skipTaskbar: true,
     webPreferences: { nodeIntegration: true, contextIsolation: false },
@@ -80,7 +83,14 @@ app.whenReady().then(() => {
 });
 
 ipcMain.on('get-config-path', (e) => { e.returnValue = configFile(); });
-ipcMain.on('config-changed', () => { cfg = loadConfig(configFile()); pushState(); });
+ipcMain.on('config-changed', () => {
+  cfg = loadConfig(configFile());
+  if (petWin && !petWin.isDestroyed()) {
+    const [x, y] = petWin.getPosition();
+    petWin.setBounds({ x, y, width: petWinSize(), height: petWinSize() });
+  }
+  pushState();
+});
 ipcMain.on('move-pet', (_, { x, y }) => petWin.setPosition(x, y));
 ipcMain.on('drag-end', () => {
   const [x, y] = petWin.getPosition();

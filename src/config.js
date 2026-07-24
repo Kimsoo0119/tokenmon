@@ -4,6 +4,7 @@ const path = require('node:path');
 const DEFAULTS = {
   source: 'claude',
   pollIntervalMin: 5,
+  petSize: 140,
   petPosition: null,
   activeMonster: null,
   monsters: {},
