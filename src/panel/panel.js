@@ -55,7 +55,7 @@
   // 창 높이는 카드 실제 높이에 자동 추종 (고정 높이는 투명 여백/유령 그림자를 만듦)
   const card = q('card');
   new ResizeObserver(() => {
-    ipcRenderer.send('panel-resize', Math.min(Math.ceil(card.offsetHeight) + 32, 820));
+    ipcRenderer.send('panel-resize', Math.min(Math.ceil(card.offsetHeight) + 16, 900));
   }).observe(card);
 
   // 파일 선택 대화상자가 떠 있는 동안만 blur 닫힘 방지

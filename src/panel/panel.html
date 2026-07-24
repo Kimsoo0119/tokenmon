@@ -52,9 +52,9 @@
   button:active { background: rgba(255,255,255,.15); }
 
   /* ── 인라인 설정 ───────────────────────────── */
+  /* 내부 스크롤 없이 카드가 내용만큼 늘어나고 창이 따라옴 */
   #settings-sec { border-top: 1px solid var(--hairline); margin-top: 14px;
-    padding-top: 6px; max-height: 430px; overflow-y: auto; }
-  #settings-sec::-webkit-scrollbar { display: none; }
+    padding-top: 6px; padding-bottom: 4px; }
   #settings-sec:not([hidden]) { animation: fadeUp .25s ease; }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(-4px); } }
 
