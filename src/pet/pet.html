@@ -2,7 +2,7 @@
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; user-select: none; }
   #wrap { position: relative; width: 100%; height: 100%;
-    display: flex; align-items: flex-end; justify-content: center; }
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
   #sprite { max-width: 140px; max-height: 140px; image-rendering: pixelated;
     -webkit-user-drag: none; cursor: grab; display: none; }
   #sprite.attacking { animation: attack .35s ease-out; filter: brightness(1.8); }
@@ -13,7 +13,7 @@
     100% { transform: translateX(0); }
   }
   #empty { font-size: 64px; cursor: default; margin-bottom: 30px; }
-  #bubble { position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+  #bubble { margin-bottom: 6px;
     background: rgba(255,255,255,.95); border: 1px solid #ccc; border-radius: 10px;
     padding: 4px 10px; font: 12px -apple-system; white-space: nowrap; display: none; }
   #flash { position: absolute; inset: 20px; background: white; opacity: 0;
