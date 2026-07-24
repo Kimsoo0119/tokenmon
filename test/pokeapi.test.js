@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { resolveSlug, chainPaths } = require('../src/pokeapi');
+const { resolveSlug, chainPaths, fetchEvolutionPaths, downloadGif } = require('../src/pokeapi');
 
 test('resolveSlug: 한글 매핑 우선', () =>
   assert.equal(resolveSlug('피카츄', { '피카츄': 'pikachu' }), 'pikachu'));
@@ -29,3 +29,10 @@ test('chainPaths: 분기 진화 → 경로 여러 개', () =>
 
 test('chainPaths: 진화 없는 종 → 자기 자신만', () =>
   assert.deepEqual(chainPaths({ species: { name: 'tauros' }, evolves_to: [] }), [['tauros']]));
+
+test('downloadGif: 잘못된 slug 거부', async () => {
+  await assert.rejects(() => downloadGif('../../etc/passwd', '/tmp/x'), /잘못된 이름/);
+});
+test('fetchEvolutionPaths: 잘못된 slug 거부', async () => {
+  await assert.rejects(() => fetchEvolutionPaths('피카츄!'), /잘못된 이름/);
+});

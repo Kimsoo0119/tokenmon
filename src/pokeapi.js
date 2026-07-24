@@ -16,6 +16,10 @@ function chainPaths(node) {
   return paths;
 }
 
+function assertSlug(slug) {
+  if (!/^[a-z0-9-]+$/.test(slug)) throw new Error(`잘못된 이름: ${slug}`);
+}
+
 async function getJson(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${url} → ${res.status}`);
@@ -23,12 +27,14 @@ async function getJson(url) {
 }
 
 async function fetchEvolutionPaths(slug) {
+  assertSlug(slug);
   const sp = await getJson(`https://pokeapi.co/api/v2/pokemon-species/${slug}`);
   const chain = await getJson(sp.evolution_chain.url);
   return chainPaths(chain.chain);
 }
 
 async function downloadGif(slug, destDir) {
+  assertSlug(slug);
   fs.mkdirSync(destDir, { recursive: true });
   const dest = path.join(destDir, `${slug}.gif`);
   if (fs.existsSync(dest)) return dest;
