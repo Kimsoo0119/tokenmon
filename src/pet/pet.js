@@ -16,7 +16,11 @@ ipcRenderer.on('state', (_, s) => {
   const has = !!(s && s.stage);
   empty.style.display = has ? 'none' : 'block';
   sprite.style.display = has ? 'block' : 'none';
-  if (!has) return;
+  if (!has) {
+    // 몬스터가 없어지면 트레이 아이콘도 제거 (마지막 스프라이트가 남는 것 방지)
+    if (currentGif != null) { currentGif = null; ipcRenderer.send('tray-icon', null); }
+    return;
+  }
   if (s.stage.gif !== currentGif) {
     const first = currentGif == null;
     currentGif = s.stage.gif;
