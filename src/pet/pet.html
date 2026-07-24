@@ -1,0 +1,30 @@
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; user-select: none; }
+  #wrap { position: relative; width: 100%; height: 100%;
+    display: flex; align-items: flex-end; justify-content: center; }
+  #sprite { max-width: 140px; max-height: 140px; image-rendering: pixelated;
+    -webkit-user-drag: none; cursor: grab; display: none; }
+  #sprite.attacking { animation: attack .35s ease-out; filter: brightness(1.8); }
+  @keyframes attack {
+    0% { transform: translateX(0); }
+    35% { transform: translateX(26px) scale(1.08); }
+    65% { transform: translateX(-8px); }
+    100% { transform: translateX(0); }
+  }
+  #empty { font-size: 64px; cursor: default; margin-bottom: 30px; }
+  #bubble { position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+    background: rgba(255,255,255,.95); border: 1px solid #ccc; border-radius: 10px;
+    padding: 4px 10px; font: 12px -apple-system; white-space: nowrap; display: none; }
+  #flash { position: absolute; inset: 20px; background: white; opacity: 0;
+    pointer-events: none; border-radius: 20px; }
+  #flash.on { animation: flashAnim 1s ease; }
+  @keyframes flashAnim { 0% {opacity:0} 40% {opacity:1} 60% {opacity:1} 100% {opacity:0} }
+</style>
+<div id="wrap">
+  <div id="bubble"></div>
+  <div id="empty" title="트레이 → 설정에서 몬스터를 추가하세요">🥚</div>
+  <img id="sprite">
+  <div id="flash"></div>
+</div>
+<script src="pet.js"></script>
