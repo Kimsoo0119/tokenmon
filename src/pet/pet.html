@@ -19,8 +19,16 @@
     65% { transform: translateX(-8px); }
     100% { transform: translateX(0); }
   }
-  #empty { font-size: 64px; cursor: pointer; }
+  #empty { font-size: 64px; cursor: pointer;
+    transform-origin: 50% 92%; animation: wobble 3.2s ease-in-out infinite; }
   #empty img { width: 96px; -webkit-user-drag: none; vertical-align: middle; }
+  @keyframes wobble {
+    0%, 68%, 100% { transform: rotate(0deg); }
+    72% { transform: rotate(-7deg); }
+    77% { transform: rotate(6deg); }
+    82% { transform: rotate(-4deg); }
+    87% { transform: rotate(2deg); }
+  }
   #flash { position: absolute; inset: 0; opacity: 0; pointer-events: none;
     background: radial-gradient(circle, rgba(255,255,255,.95) 15%, rgba(255,255,255,0) 65%); }
   #flash.on { animation: flashAnim 1s ease; }
