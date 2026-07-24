@@ -112,6 +112,6 @@ function attack() {
 function bubbleText() {
   const p = Math.round(state.percent);
   return state.nextThreshold == null
-    ? `주간 <b>${p}%</b> · 최종 진화!`
+    ? `주간 <b>${p}%</b>`
     : `주간 <b>${p}%</b> · 진화까지 <b>${Math.max(0, Math.ceil(state.nextThreshold - state.percent))}%p</b>`;
 }
