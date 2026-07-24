@@ -69,6 +69,7 @@ $('pet-size').onchange = () => { cfg.petSize = +$('pet-size').value; save(); };
 
 // --- 포켓몬 추가 ---
 let paths = [];
+$('poke-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('poke-lookup').click(); });
 $('poke-lookup').onclick = async () => {
   $('poke-status').textContent = '조회 중…';
   $('poke-paths').hidden = $('poke-add').hidden = true;
