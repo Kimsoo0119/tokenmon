@@ -1,0 +1,50 @@
+name: 버그 제보
+description: 동작이 이상하거나 앱이 멈추는 문제를 알려주세요
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 무슨 일이 있었나요
+      description: 기대한 동작과 실제 동작을 함께 적어주세요.
+      placeholder: 펫을 화면 오른쪽 끝으로 옮기면 말풍선이 잘려서 보입니다.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 재현 방법
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: source
+    attributes:
+      label: 사용 중인 사용량 소스
+      options:
+        - Claude
+        - Codex
+        - 둘 다 / 관계없음
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: 환경
+      description: macOS 버전과 Node 버전을 적어주세요. (`sw_vers -productVersion`, `node --version`)
+      placeholder: macOS 15.2 / Node 22.11.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 로그 (선택)
+      description: 터미널에서 `npm start`로 실행했을 때 출력된 오류가 있다면 붙여주세요.
+      render: shell

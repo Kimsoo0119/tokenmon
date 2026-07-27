@@ -22,12 +22,16 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
+    "lint": "eslint .",
     "test": "node --test"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
-    "electron": "^43.2.0"
+    "@eslint/js": "^10.0.1",
+    "electron": "^43.2.0",
+    "eslint": "^10.8.0",
+    "globals": "^17.8.0"
   }
 }

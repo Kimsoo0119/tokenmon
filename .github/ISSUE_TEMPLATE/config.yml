@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 보안 취약점 제보
+    url: https://github.com/Kimsoo0119/tokenmon/security/advisories/new
+    about: 보안 문제는 공개 이슈 대신 비공개로 알려주세요

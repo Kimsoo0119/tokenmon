@@ -1,0 +1,26 @@
+name: 기능 제안
+description: 있으면 좋겠다 싶은 기능을 제안해주세요
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 어떤 점이 아쉬운가요
+      description: 제안하시는 기능이 어떤 상황에서 필요한지 알려주세요.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: 이런 식이면 좋겠습니다
+      description: 떠올리신 동작 방식이 있다면 적어주세요. 대략적인 아이디어도 괜찮습니다.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: check
+    attributes:
+      label: 확인
+      options:
+        - label: 이 프로젝트가 의존성을 늘리지 않으려 한다는 점을 확인했습니다 (CONTRIBUTING.md 참고)

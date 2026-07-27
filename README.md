@@ -1,6 +1,6 @@
 # tokenmon
 
-[![test](https://github.com/Kimsoo0119/tokenmon/actions/workflows/test.yml/badge.svg)](https://github.com/Kimsoo0119/tokenmon/actions/workflows/test.yml)
+[![ci](https://github.com/Kimsoo0119/tokenmon/actions/workflows/ci.yml/badge.svg)](https://github.com/Kimsoo0119/tokenmon/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Claude Code / Codex 주간 사용량에 따라 진화하는 macOS 데스크탑 펫.
@@ -63,13 +63,16 @@ npm start
 
 ## 개발
 
-의존성은 Electron 하나뿐이고, 테스트는 Node 내장 러너로 돕니다.
+런타임 의존성은 Electron 하나뿐이고, 테스트는 Node 내장 러너로 돕니다.
 
 ```bash
-npm test
+npm run lint  # ESLint
+npm test      # 테스트 31개
 ```
 
-버그 제보나 기능 제안은 [이슈](https://github.com/Kimsoo0119/tokenmon/issues)로 남겨주세요. Pull Request도 환영합니다. 보내기 전에 `npm test`가 통과하는지만 확인해주시면 됩니다.
+버그 제보나 기능 제안은 [이슈](https://github.com/Kimsoo0119/tokenmon/issues)로 남겨주세요. Pull Request도 환영합니다. 자세한 내용은 [CONTRIBUTING.md](CONTRIBUTING.md)를 참고해주세요.
+
+보안 문제는 공개 이슈 대신 [비공개 제보](https://github.com/Kimsoo0119/tokenmon/security/advisories/new)를 이용해주세요. 앱이 다루는 정보에 대한 설명은 [SECURITY.md](SECURITY.md)에 정리해두었습니다.
 
 ## 데이터 출처 및 고지
 
