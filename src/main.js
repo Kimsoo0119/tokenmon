@@ -228,7 +228,7 @@ app.whenReady().then(() => {
   createBubbleWindow();
   watchEvents();
   poll();
-  setInterval(poll, (cfg.pollIntervalMin || 5) * 60 * 1000);
+  setInterval(poll, (cfg.pollIntervalMin || 1) * 60 * 1000);
 });
 
 ipcMain.on('get-config-path', (e) => { e.returnValue = configFile(); });

@@ -10,7 +10,7 @@ const tmp = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'tokemon-')), 
 test('없는 파일 → 기본값', () => {
   const cfg = loadConfig(path.join(os.tmpdir(), 'tokemon-none-' + Date.now() + '.json'));
   assert.equal(cfg.source, 'claude');
-  assert.equal(cfg.pollIntervalMin, 5);
+  assert.equal(cfg.pollIntervalMin, DEFAULTS.pollIntervalMin);
   assert.deepEqual(cfg.monsters, {});
 });
 test('저장 후 로드 왕복', () => {
@@ -26,7 +26,7 @@ test('깨진 JSON → 기본값', () => {
 test('부분 저장된 설정에 기본값 병합', () => {
   const f = tmp();
   fs.writeFileSync(f, JSON.stringify({ source: 'codex' }));
-  assert.equal(loadConfig(f).pollIntervalMin, 5);
+  assert.equal(loadConfig(f).pollIntervalMin, DEFAULTS.pollIntervalMin);
 });
 test('loadConfig 결과 변형이 DEFAULTS를 오염시키지 않음', () => {
   const f = tmp();

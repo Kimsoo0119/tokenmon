@@ -37,7 +37,7 @@ npm start
 
 ## 동작 방식
 
-- 5분마다 주간 한도 소진율을 조회해 트레이에 `Lv.` 표시
+- 1분마다 주간 한도 소진율을 조회해 트레이에 `Lv.` 표시
   - Claude: Keychain의 Claude Code OAuth 토큰으로 usage API 조회
   - Codex: `~/.codex/sessions/` 세션 로그의 rate_limits 스냅샷 (Codex를 써야 갱신됨)
 - 소진율이 임계값(기본 균등분할)을 넘을 때마다 펫이 진화, 주간 리셋되면 1단계로 회귀
