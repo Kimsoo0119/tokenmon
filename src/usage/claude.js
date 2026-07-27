@@ -20,10 +20,12 @@ async function fetchClaudeUsage() {
     },
   });
   if (res.status === 429) {
-    // 이 엔드포인트는 계정에 따라 시간당 1회 수준으로 제한됨 — retry-after를 존중
+    // 실측(2026-07): 5분 남짓한 창에 4회까지 통과하고 5회째부터 429가 나오며
+    // retry-after로 300초를 준다. 응답에 anthropic-ratelimit-* 헤더는 없어서
+    // 남은 횟수를 미리 알 수는 없고, 429를 받은 뒤 retry-after를 따르는 수밖에 없다.
     const err = new Error('usage API rate limited');
     err.rateLimited = true;
-    err.retryAfterMs = (Number(res.headers.get('retry-after')) || 3600) * 1000;
+    err.retryAfterMs = (Number(res.headers.get('retry-after')) || 300) * 1000;
     throw err;
   }
   if (!res.ok) throw new Error(`usage API ${res.status}`);
