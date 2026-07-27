@@ -106,7 +106,9 @@ ipcRenderer.on('agent-event', (_, ev) => {
   if (ev.type === 'notify') return notifyBubble('🔔', ev.message);
   const key = ev.session || '';
   if (ev.type === 'start') sessions.set(key, { ts: Date.now() });
-  else sessions.delete(key); // done·waiting 모두 작업 목록에서 제거 (waiting은 일회성 알림)
+  else if (ev.type === 'done') sessions.delete(key);
+  else if (ev.type === 'waiting' && sessions.has(key)) sessions.get(key).ts = Date.now();
+  // waiting은 세션을 제거하지 않음: 권한 승인 후엔 start 없이 작업이 재개되기 때문
   render(ev);
 });
 
@@ -128,7 +130,8 @@ function render(ev) {
     canPlay ? playCatch(msg) : notifyBubble('✅', msg);
   } else if (ev.type === 'waiting') {
     const msg = from + (ev.message || '답변을 기다리고 있어요!');
-    canPlay ? playMiss(msg) : notifyBubble('🙋', msg);
+    // 풀 시퀀스는 작업 중 세션이 진짜 막혔을 때만. 턴 종료 후 idle 알림은 말풍선만 (연출 반복 방지)
+    canPlay && sessions.has(ev.session || '') ? playMiss(msg) : notifyBubble('🙋', msg);
   }
   syncBadge(working);
 }
