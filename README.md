@@ -70,6 +70,8 @@ npm run lint  # ESLint
 npm test      # 테스트 31개
 ```
 
+구조와 설계 배경은 [docs/design.md](docs/design.md)에 정리해두었습니다.
+
 버그 제보나 기능 제안은 [이슈](https://github.com/Kimsoo0119/tokenmon/issues)로 남겨주세요. Pull Request도 환영합니다. 자세한 내용은 [CONTRIBUTING.md](CONTRIBUTING.md)를 참고해주세요.
 
 보안 문제는 공개 이슈 대신 [비공개 제보](https://github.com/Kimsoo0119/tokenmon/security/advisories/new)를 이용해주세요. 앱이 다루는 정보에 대한 설명은 [SECURITY.md](SECURITY.md)에 정리해두었습니다.
