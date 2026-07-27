@@ -4,21 +4,20 @@ const empty = document.getElementById('empty');
 const bubble = document.getElementById('bubble');
 const flash = document.getElementById('flash');
 const ball = document.getElementById('ball');
-const ballWrap = document.getElementById('ballWrap');
-const ballCount = document.getElementById('ballCount');
+const badge = document.getElementById('badge');
 let state = null;
 let currentGif = null;
 let bubbleTimer;
-let agentBusy = false; // 몬스터볼 표시 중
+let animating = false; // 볼 시퀀스 재생 중이면 새 연출 대신 말풍선만
+let petHidden = false; // 시퀀스가 잠시 펫을 숨긴 상태
 const sessions = new Map(); // 작업 중인 세션ID → {ts} (여러 터미널 세션 합산용)
 const SESSION_TTL = 30 * 60 * 1000; // 이벤트 유실 대비: 오래된 세션 자동 제거
+const after = (ms, fn) => setTimeout(fn, ms);
 
-// 펫/알/볼 중 무엇을 보여줄지 한곳에서 결정
 function syncVisibility() {
   const has = !!(state && state.stage);
-  ballWrap.style.display = agentBusy ? 'block' : 'none';
-  sprite.style.display = has && !agentBusy ? 'block' : 'none';
-  empty.style.display = !has && !agentBusy ? 'block' : 'none';
+  sprite.style.display = has && !petHidden ? 'block' : 'none';
+  empty.style.display = has ? 'none' : 'block';
 }
 
 ipcRenderer.on('state', (_, s) => {
@@ -26,6 +25,8 @@ ipcRenderer.on('state', (_, s) => {
   if (s && s.petSize) {
     sprite.style.width = s.petSize + 'px';
     sprite.style.height = s.petSize + 'px';
+    badge.style.transform = `translateX(${s.petSize / 2 + 6}px)`;
+    badge.style.bottom = `${s.petSize - 4}px`;
   }
   syncVisibility();
   if (!(s && s.stage)) {
@@ -70,7 +71,7 @@ function sendTrayIcon() {
 let ignoringMouse = false;
 document.addEventListener('mousemove', (e) => {
   if (down) return; // 드래그 중엔 항상 이벤트 수신
-  const interactive = e.target === sprite || e.target === bubble || e.target === empty || e.target === ball;
+  const interactive = e.target === sprite || e.target === bubble || e.target === empty;
   if (ignoringMouse === interactive) {
     ignoringMouse = !interactive;
     ipcRenderer.send('ignore-mouse', ignoringMouse);
@@ -80,12 +81,10 @@ document.addEventListener('mousemove', (e) => {
 // 드래그(이동) vs 클릭(공격 + 툴팁) 구분: 4px 이상 움직이면 드래그
 let down = null;
 let moved = false;
-function onDown(e) {
+sprite.addEventListener('mousedown', (e) => {
   down = { sx: e.screenX, sy: e.screenY, wx: window.screenX, wy: window.screenY };
   moved = false;
-}
-sprite.addEventListener('mousedown', onDown);
-ball.addEventListener('mousedown', onDown);
+});
 window.addEventListener('mousemove', (e) => {
   if (!down) return;
   const dx = e.screenX - down.sx;
@@ -95,13 +94,14 @@ window.addEventListener('mousemove', (e) => {
 });
 window.addEventListener('mouseup', () => {
   if (down && moved) ipcRenderer.send('drag-end');
-  else if (down) agentBusy ? release() : attack(); // 볼 클릭 = 즉시 복귀 (Stop 유실 대비)
+  else if (down) attack();
   down = null;
 });
 
-sprite.addEventListener('animationend', () => sprite.classList.remove('attacking', 'notifying'));
+sprite.addEventListener('animationend', () =>
+  sprite.classList.remove('attacking', 'notifying', 'summoned', 'dodge'));
 
-// 외부 이벤트(Claude Code 훅 등): start/done/waiting은 몬스터볼 연출, notify는 점프 + 말풍선
+// 외부 이벤트(Claude Code 훅 등): done/waiting은 몬스터볼 연출, start/notify는 말풍선
 ipcRenderer.on('agent-event', (_, ev) => {
   if (ev.type === 'notify') return notifyBubble('🔔', ev.message);
   const key = ev.session || '';
@@ -120,89 +120,96 @@ function countWorking() {
 function render(ev) {
   const working = countWorking();
   const from = ev.project ? `${ev.project} · ` : ''; // 어느 프로젝트에서 온 이벤트인지
-  if (ev.type === 'waiting') {
-    // waiting을 상태로 유지하면 답 안 한 세션이 쌓였을 때 새 작업이 볼에 못 들어가므로 일회성으로만 연출
+  const canPlay = !animating && sprite.style.display !== 'none'; // 알 상태(펫 없음)면 말풍선만
+  if (ev.type === 'start') {
+    notifyBubble('⚙️', working > 1 ? `${from}시작 · ${working}개 작업 중` : from + '작업 시작!');
+  } else if (ev.type === 'done') {
+    const msg = ev.message || (working > 0 ? `${from}완료 · ${working}개 작업 중` : from + '작업 완료!');
+    canPlay ? playCatch(msg) : notifyBubble('✅', msg);
+  } else if (ev.type === 'waiting') {
     const msg = from + (ev.message || '답변을 기다리고 있어요!');
-    if (agentBusy && working === 0) burstOut('🙋', msg); // 놓침! 볼에서 탈출
-    else notifyBubble('🙋', msg); // 다른 세션 작업 중이면 볼 유지한 채 말풍선만
-  } else if (working > 0) {
-    if (!agentBusy) capture();
-    else if (ev.type === 'done') notifyBubble('✅', `${from}완료 · ${working}개 작업 중`);
-    else if (ev.type === 'start' && working > 1) notifyBubble('⚙️', `${from}시작 · ${working}개 작업 중`);
-  } else {
-    if (agentBusy) {
-      if (ev.type === 'done') caughtThenBurst(ev.message || from + '작업 완료!'); // 마지막 세션 완료
-      else release(); // TTL 만료 등
-    } else if (ev.type === 'done') notifyBubble('✅', ev.message || from + '작업 완료!');
+    canPlay ? playMiss(msg) : notifyBubble('🙋', msg);
   }
-  // 동시 작업 세션 수 배지 (agentBusy는 위 분기에서 갱신됨)
-  ballCount.textContent = `×${working}`;
-  ballCount.style.display = agentBusy && working > 1 ? 'block' : 'none';
+  syncBadge(working);
 }
 
-// 이벤트 없이 죽은 세션 정리 (볼에 갇힌 채 방치 방지)
-setInterval(() => { if (sessions.size) render({ type: 'prune' }); }, 60 * 1000);
+function syncBadge(working) {
+  badge.textContent = `×${working}`;
+  badge.style.display = working > 0 ? 'block' : 'none';
+}
+
+// 이벤트 없이 죽은 세션 정리 (배지가 남지 않게)
+setInterval(() => syncBadge(countWorking()), 60 * 1000);
+
+// 작업 완료: 볼 던져서 명중 → 흔들 → 딸깍! → 터지며 펫 소환
+function playCatch(msg) {
+  animating = true;
+  bubble.style.display = 'none';
+  ball.style.display = 'block';
+  ball.className = 'throwing';
+  after(400, () => { // 명중: 펫이 볼로 빨려 들어감
+    flash.classList.add('on');
+    sprite.classList.add('captured');
+    ball.className = '';
+  });
+  after(780, () => {
+    petHidden = true;
+    sprite.classList.remove('captured');
+    syncVisibility();
+    ball.className = 'wobbling';
+  });
+  after(1400, () => flash.classList.remove('on'));
+  after(2000, () => { ball.className = 'caught'; }); // 딸깍!
+  after(2600, () => { // 포획 성공 → 소환
+    flash.classList.add('on');
+    ball.className = 'burst';
+  });
+  after(2900, () => {
+    ball.className = '';
+    ball.style.display = 'none';
+    petHidden = false;
+    syncVisibility();
+    sprite.classList.add('summoned');
+    notifyBubble('✅', msg);
+    animating = false;
+  });
+  after(3600, () => flash.classList.remove('on'));
+}
+
+// 답변 대기: 볼 던졌지만 놓침 → 펫이 피하고 스킬 시전
+function playMiss(msg) {
+  animating = true;
+  bubble.style.display = 'none';
+  ball.style.display = 'block';
+  ball.className = 'throwing';
+  after(400, () => { // 펫이 피하고 볼은 튕겨나감
+    sprite.classList.add('dodge');
+    ball.className = 'missOut';
+  });
+  after(900, () => { // 스킬 시전
+    ball.className = '';
+    ball.style.display = 'none';
+    sprite.classList.add('attacking');
+    flash.classList.add('on');
+    notifyBubble('🙋', msg);
+    animating = false;
+  });
+  after(1900, () => flash.classList.remove('on'));
+}
 
 // 점프 + 말풍선. 메시지는 외부 입력이라 textContent로만 출력
 function notifyBubble(icon, msg) {
-  sprite.classList.remove('notifying');
-  void sprite.offsetWidth;
-  sprite.classList.add('notifying');
+  if (!animating) {
+    sprite.classList.remove('notifying');
+    void sprite.offsetWidth;
+    sprite.classList.add('notifying');
+  }
   bubble.innerHTML = '<b class="notice"></b> ';
   bubble.querySelector('.notice').textContent = icon;
   bubble.appendChild(document.createTextNode(msg));
   bubble.style.display = 'block';
   clearTimeout(bubbleTimer);
   bubbleTimer = setTimeout(() => { bubble.style.display = 'none'; }, 6000);
-}
-
-// 작업 시작: 펫이 볼로 빨려 들어가고 볼이 흔들림
-function capture() {
-  if (agentBusy) return; // 이미 볼 상태면 흔들림 유지
-  agentBusy = true;
-  bubble.style.display = 'none';
-  ball.classList.remove('caught', 'burst');
-  ball.classList.add('wobbling');
-  if (sprite.style.display !== 'none') {
-    flash.classList.add('on');
-    sprite.classList.add('captured');
-    setTimeout(() => { sprite.classList.remove('captured'); syncVisibility(); }, 420);
-    setTimeout(() => flash.classList.remove('on'), 1000);
-  } else syncVisibility();
-}
-
-// 작업 완료: 딸깍! 잠긴 뒤 터지며 펫 복귀. 그 사이 새 세션이 시작되면 흔들림으로 복귀
-function caughtThenBurst(msg) {
-  ball.classList.remove('wobbling');
-  ball.classList.add('caught');
-  setTimeout(() => {
-    if (countWorking() > 0) {
-      ball.classList.remove('caught');
-      ball.classList.add('wobbling');
-    } else burstOut('✅', msg);
-  }, 700);
-}
-
-// 볼이 터지며 펫 복귀 + 말풍선
-function burstOut(icon, msg) {
-  agentBusy = false;
-  ball.classList.remove('wobbling', 'caught');
-  ball.classList.add('burst');
-  flash.classList.add('on');
-  setTimeout(() => {
-    ball.classList.remove('burst');
-    syncVisibility();
-    notifyBubble(icon, msg);
-  }, 300);
-  setTimeout(() => flash.classList.remove('on'), 1000);
-}
-
-// 조용히 복귀 (볼 클릭 · TTL 만료). 세션 추적도 초기화해 다시 잡히지 않게 함
-function release() {
-  sessions.clear();
-  agentBusy = false;
-  ball.classList.remove('wobbling', 'caught', 'burst');
-  syncVisibility();
 }
 
 function attack() {
