@@ -1,4 +1,4 @@
-# tokenmon
+<img src="assets/banner.png" alt="tokenmon — 사용량이 쌓일수록 진화하는 macOS 데스크탑 펫" width="100%">
 
 [![ci](https://github.com/Kimsoo0119/tokenmon/actions/workflows/ci.yml/badge.svg)](https://github.com/Kimsoo0119/tokenmon/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
