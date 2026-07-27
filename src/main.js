@@ -1,7 +1,7 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
-const { loadConfig, saveConfig } = require('./config');
+const { loadConfig, saveConfig, cachedUsage } = require('./config');
 const { stageIndex } = require('./evolution');
 const { fetchClaudeUsage } = require('./usage/claude');
 const { fetchCodexUsage } = require('./usage/codex');
@@ -37,6 +37,7 @@ let claudeBackoffUntil = 0; // usage API가 429를 주면 retry-after까지 조�
 // 성공 조회값을 config에 캐시 — 재시작 직후 백오프여도 펫이 바로 보이게
 function persistUsage(u) {
   cfg.lastUsage = u;
+  cfg.lastUsageSource = cfg.source; // 어느 소스의 값인지 함께 남겨야 소스 전환 후 오용을 막음
   saveConfig(configFile(), cfg);
 }
 
@@ -210,9 +211,11 @@ function watchEvents() {
 app.whenReady().then(() => {
   if (app.dock) app.dock.hide();
   cfg = loadConfig(configFile());
-  if (cfg.lastUsage && cfg.lastUsage.weekly) {
-    lastUsage = cfg.lastUsage;
-    lastPercent = cfg.lastUsage.weekly.pct; // 첫 폴링 전/백오프 중에도 마지막 값으로 표시
+  // 캐시가 지금 소스의 값일 때만 복원 (다른 소스 값이면 첫 폴링 때까지 비워둔다)
+  const cached = cachedUsage(cfg);
+  if (cached) {
+    lastUsage = cached;
+    lastPercent = cached.weekly.pct; // 첫 폴링 전/백오프 중에도 마지막 값으로 표시
   }
   tray = new Tray(nativeImage.createEmpty());
   tray.setTitle(' …');
@@ -241,14 +244,25 @@ ipcMain.on('panel-resize', (_, h) => {
   panelWin.setBounds({ x, y, width: PANEL_W, height: h });
 });
 ipcMain.on('config-changed', () => {
+  const prevSource = cfg.source;
   cfg = loadConfig(configFile());
   if (petWin && !petWin.isDestroyed()) {
     const [x, y] = petWin.getPosition();
     petWin.setBounds({ x, y, width: petWinW(), height: petWinH() });
   }
+  // 소스를 바꿔도 이전 소스의 수치가 그대로 남아, 새로고침을 누르기 전까지
+  // 다른 LLM의 사용량이 계속 보이던 문제를 막는다. 디스크 캐시는 소스 태그가
+  // 달라 자연히 무시되므로 여기서는 화면에 보이는 값만 비우면 된다.
+  const sourceChanged = cfg.source !== prevSource;
+  if (sourceChanged) {
+    lastUsage = null;
+    lastPercent = null;
+    lastError = false;
+  }
   updateTray();
   pushState();
   pushPanel();
+  if (sourceChanged) poll(); // 비운 직후 새 소스로 곧바로 다시 조회
 });
 ipcMain.on('tray-icon', (_, dataUrl) => {
   if (!tray) return;
