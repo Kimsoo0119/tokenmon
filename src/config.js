@@ -3,7 +3,7 @@ const path = require('node:path');
 
 const DEFAULTS = {
   source: 'claude',
-  pollIntervalMin: 1,
+  pollIntervalMin: 5,
   petSize: 140,
   lastUsage: null, // 마지막 성공 조회값 캐시 (시작 직후 알만 보이는 것 방지)
   petPosition: null,
