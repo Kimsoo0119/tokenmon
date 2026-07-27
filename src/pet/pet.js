@@ -1,18 +1,20 @@
 const { ipcRenderer } = require('electron');
 const sprite = document.getElementById('sprite');
 const empty = document.getElementById('empty');
-const bubble = document.getElementById('bubble');
 const flash = document.getElementById('flash');
 const ball = document.getElementById('ball');
 const badge = document.getElementById('badge');
 let state = null;
 let currentGif = null;
-let bubbleTimer;
 let animating = false; // 볼 시퀀스 재생 중이면 새 연출 대신 말풍선만
 let petHidden = false; // 시퀀스가 잠시 펫을 숨긴 상태
 const sessions = new Map(); // 작업 중인 세션ID → {ts} (여러 터미널 세션 합산용)
 const SESSION_TTL = 30 * 60 * 1000; // 이벤트 유실 대비: 오래된 세션 자동 제거
 const after = (ms, fn) => setTimeout(fn, ms);
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+));
 
 function syncVisibility() {
   const has = !!(state && state.stage);
@@ -25,8 +27,6 @@ ipcRenderer.on('state', (_, s) => {
   if (s && s.petSize) {
     sprite.style.width = s.petSize + 'px';
     sprite.style.height = s.petSize + 'px';
-    badge.style.transform = `translateX(${s.petSize / 2 + 6}px)`;
-    badge.style.bottom = `${s.petSize - 4}px`;
   }
   syncVisibility();
   if (!(s && s.stage)) {
@@ -67,11 +67,11 @@ function sendTrayIcon() {
   im.src = 'file://' + currentGif;
 }
 
-// 창이 말풍선 폭만큼 넓어서, 스프라이트/말풍선 밖 투명 영역은 클릭을 아래로 통과시킴
+// 스프라이트 밖 투명 여백은 클릭을 아래로 통과시킴
 let ignoringMouse = false;
 document.addEventListener('mousemove', (e) => {
   if (down) return; // 드래그 중엔 항상 이벤트 수신
-  const interactive = e.target === sprite || e.target === bubble || e.target === empty;
+  const interactive = e.target === sprite || empty.contains(e.target);
   if (ignoringMouse === interactive) {
     ignoringMouse = !interactive;
     ipcRenderer.send('ignore-mouse', ignoringMouse);
@@ -79,24 +79,34 @@ document.addEventListener('mousemove', (e) => {
 });
 
 // 드래그(이동) vs 클릭(공격 + 툴팁) 구분: 4px 이상 움직이면 드래그
+// 포인터 캡처를 걸어 창 밖에서 버튼을 놓아도 up 이벤트를 놓치지 않음
+// (놓치면 down 상태가 남아 다음 호버 때 이전 오프셋으로 순간이동하는 버그가 생김)
 let down = null;
 let moved = false;
-sprite.addEventListener('mousedown', (e) => {
-  down = { sx: e.screenX, sy: e.screenY, wx: window.screenX, wy: window.screenY };
+sprite.addEventListener('pointerdown', (e) => {
+  sprite.setPointerCapture(e.pointerId);
+  down = { sx: e.screenX, sy: e.screenY };
   moved = false;
+  ipcRenderer.send('drag-start'); // 시작 좌표는 메인이 getPosition으로 잡음
 });
-window.addEventListener('mousemove', (e) => {
+sprite.addEventListener('pointermove', (e) => {
   if (!down) return;
   const dx = e.screenX - down.sx;
   const dy = e.screenY - down.sy;
   if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
-  if (moved) ipcRenderer.send('move-pet', { x: down.wx + dx, y: down.wy + dy });
+  if (moved) ipcRenderer.send('move-pet', { dx: Math.round(dx), dy: Math.round(dy) });
 });
-window.addEventListener('mouseup', () => {
+sprite.addEventListener('pointerup', (e) => {
+  try { sprite.releasePointerCapture(e.pointerId); } catch { /* 이미 해제됨 */ }
   if (down && moved) ipcRenderer.send('drag-end');
   else if (down) attack();
   down = null;
 });
+sprite.addEventListener('pointercancel', () => { down = null; });
+window.addEventListener('blur', () => { down = null; });
+
+// 알 상태에서 클릭하면 설정을 열어줌 (첫 실행 온보딩)
+empty.addEventListener('click', () => ipcRenderer.send('open-settings'));
 
 sprite.addEventListener('animationend', () =>
   sprite.classList.remove('attacking', 'notifying', 'summoned', 'dodge'));
@@ -147,7 +157,6 @@ setInterval(() => syncBadge(countWorking()), 60 * 1000);
 // 작업 완료: 볼 던져서 명중 → 흔들 → 딸깍! → 터지며 펫 소환
 function playCatch(msg) {
   animating = true;
-  bubble.style.display = 'none';
   ball.style.display = 'block';
   ball.className = 'throwing';
   after(400, () => { // 명중: 펫이 볼로 빨려 들어감
@@ -182,7 +191,6 @@ function playCatch(msg) {
 // 답변 대기: 볼 던졌지만 놓침 → 펫이 피하고 스킬 시전
 function playMiss(msg) {
   animating = true;
-  bubble.style.display = 'none';
   ball.style.display = 'block';
   ball.className = 'throwing';
   after(400, () => { // 펫이 피하고 볼은 튕겨나감
@@ -200,19 +208,14 @@ function playMiss(msg) {
   after(1900, () => flash.classList.remove('on'));
 }
 
-// 점프 + 말풍선. 메시지는 외부 입력이라 textContent로만 출력
+// 점프 + 말풍선(별도 창). 메시지는 외부 입력이라 이스케이프 필수
 function notifyBubble(icon, msg) {
   if (!animating) {
     sprite.classList.remove('notifying');
     void sprite.offsetWidth;
     sprite.classList.add('notifying');
   }
-  bubble.innerHTML = '<b class="notice"></b> ';
-  bubble.querySelector('.notice').textContent = icon;
-  bubble.appendChild(document.createTextNode(msg));
-  bubble.style.display = 'block';
-  clearTimeout(bubbleTimer);
-  bubbleTimer = setTimeout(() => { bubble.style.display = 'none'; }, 6000);
+  ipcRenderer.send('bubble', { html: `<b class="notice">${esc(icon)}</b> ` + esc(msg), duration: 6000 });
 }
 
 function attack() {
@@ -220,18 +223,16 @@ function attack() {
   void sprite.offsetWidth; // 애니메이션 재시작 트릭
   sprite.classList.add('attacking');
   if (!state) return;
-  // bubbleText는 내부 숫자/고정 문자열만 조합하므로 innerHTML 안전
-  bubble.innerHTML = state.error
-    ? '⚠️ 조회 실패 · 마지막 값 표시 중'
-    : bubbleText();
-  bubble.style.display = 'block';
-  clearTimeout(bubbleTimer);
-  bubbleTimer = setTimeout(() => { bubble.style.display = 'none'; }, 2500);
+  // bubbleText는 내부 숫자/고정 문자열만 조합하므로 그대로 전달
+  ipcRenderer.send('bubble', {
+    html: state.error ? '⚠️ 조회 실패 · 마지막 값 표시 중' : bubbleText(),
+    duration: 2500,
+  });
 }
 
 function bubbleText() {
   const p = Math.round(state.percent);
   return state.nextThreshold == null
-    ? `주간 <b>${p}%</b> · 최종 진화!`
+    ? `주간 <b>${p}%</b>`
     : `주간 <b>${p}%</b> · 진화까지 <b>${Math.max(0, Math.ceil(state.nextThreshold - state.percent))}%p</b>`;
 }

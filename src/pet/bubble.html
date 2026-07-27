@@ -1,0 +1,50 @@
+<meta charset="utf-8">
+<style>
+  @font-face {
+    font-family: 'Galmuri9';
+    src: url('../../assets/Galmuri9.woff2') format('woff2');
+  }
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  body { position: relative; height: 100vh; font: 11px 'Galmuri9', monospace; }
+  /* 박스는 JS가 펫 중심에 맞춰 left를 계산해 배치 (창 중앙 고정이면 구석에서 어긋남) */
+  /* 포켓몬 게임 대화창 스타일: 흰 배경 + 검정 테두리 + 안쪽 회색 라인 + ▼ */
+  #bubble { position: absolute; background: #f8f8f0; color: #181810;
+    border: 3px solid #181810; border-radius: 0;
+    box-shadow: inset 0 0 0 2px #f8f8f0, inset 0 0 0 4px #98a0a8;
+    padding: 8px 14px 9px 10px;
+    text-align: center; word-break: keep-all; max-width: calc(100vw - 24px);
+    white-space: nowrap; line-height: 1.4;
+    animation: pop .18s steps(3); }
+  body:not(.below) #bubble { bottom: 9px; }
+  body.below #bubble { top: 9px; }
+  #bubble b { font: inherit; font-variant-numeric: tabular-nums; color: #d84020; }
+  #bubble b.notice { font: inherit; color: #181810; }
+  @keyframes pop { from { opacity: 0; transform: scale(.94); } }
+  #bubble::before { content: '▼'; position: absolute; right: 4px; bottom: 1px;
+    font: 8px 'Galmuri9', monospace; color: #181810;
+    animation: blinkCursor 1s steps(2, jump-none) infinite; }
+  @keyframes blinkCursor { 50% { opacity: 0; } }
+  #bubble::after { content: ''; position: absolute; left: var(--tail, 50%); transform: translateX(-50%);
+    border: 6px solid transparent; }
+  body:not(.below) #bubble::after { top: 100%; border-top-color: #181810; }
+  body.below #bubble::after { bottom: 100%; border-bottom-color: #181810; }
+</style>
+<div id="bubble" hidden></div>
+<script>
+  const { ipcRenderer } = require('electron');
+  const b = document.getElementById('bubble');
+  ipcRenderer.on('bubble-content', (_, { html, below, tailX }) => {
+    document.body.classList.toggle('below', below);
+    b.hidden = false;
+    b.style.animation = 'none';
+    void b.offsetWidth; // 애니메이션 재시작
+    b.style.animation = '';
+    b.innerHTML = html; // 내용은 메인/펫 프로세스에서 이스케이프 완료
+    // 박스를 펫 중심(tailX, 창 기준 px)에 맞추고, 못 붙으면 꼬리만 이동
+    const w = b.offsetWidth;
+    const left = Math.min(Math.max(tailX - w / 2, 4), window.innerWidth - w - 4);
+    b.style.left = `${left}px`;
+    const t = Math.min(Math.max(tailX - left, 12), w - 12);
+    b.style.setProperty('--tail', `${t}px`);
+  });
+</script>

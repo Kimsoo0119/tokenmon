@@ -20,7 +20,7 @@
 
   #card { background: linear-gradient(180deg, rgba(38,38,42,.97), var(--bg) 120px);
     border: 1px solid var(--card-line); border-radius: 14px; padding: 16px 18px 14px;
-    box-shadow: 0 18px 50px rgba(0,0,0,.5);
+    margin: 4px 8px 8px;
     animation: pop .22s cubic-bezier(.2,.9,.3,1.2); }
   @keyframes pop { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
 
@@ -52,9 +52,9 @@
   button:active { background: rgba(255,255,255,.15); }
 
   /* ── 인라인 설정 ───────────────────────────── */
+  /* 내부 스크롤 없이 카드가 내용만큼 늘어나고 창이 따라옴 */
   #settings-sec { border-top: 1px solid var(--hairline); margin-top: 14px;
-    padding-top: 6px; max-height: 430px; overflow-y: auto; }
-  #settings-sec::-webkit-scrollbar { display: none; }
+    padding-top: 6px; padding-bottom: 4px; }
   #settings-sec:not([hidden]) { animation: fadeUp .25s ease; }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(-4px); } }
 

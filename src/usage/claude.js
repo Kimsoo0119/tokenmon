@@ -19,6 +19,13 @@ async function fetchClaudeUsage() {
       'anthropic-beta': 'oauth-2025-04-20',
     },
   });
+  if (res.status === 429) {
+    // 이 엔드포인트는 계정에 따라 시간당 1회 수준으로 제한됨 — retry-after를 존중
+    const err = new Error('usage API rate limited');
+    err.rateLimited = true;
+    err.retryAfterMs = (Number(res.headers.get('retry-after')) || 3600) * 1000;
+    throw err;
+  }
   if (!res.ok) throw new Error(`usage API ${res.status}`);
   const d = await res.json();
   const pick = (o) => (o && typeof o.utilization === 'number')

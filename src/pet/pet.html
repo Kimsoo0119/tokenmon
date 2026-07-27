@@ -6,7 +6,7 @@
   }
   html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; user-select: none; }
   #wrap { position: relative; width: 100%; height: 100%;
-    display: flex; flex-direction: column; align-items: center; justify-content: flex-end; }
+    display: flex; align-items: center; justify-content: center; }
   #sprite { width: 140px; height: 140px; object-fit: contain; image-rendering: pixelated;
     -webkit-user-drag: none; cursor: grab; display: none; }
   #sprite.attacking { animation: attack .35s ease-out; filter: brightness(1.8); }
@@ -34,18 +34,27 @@
     30% { transform: translateX(-24px) scale(1.02); }
     100% { transform: translateX(0); }
   }
-  #empty { font-size: 64px; cursor: default; margin-bottom: 30px; }
+  #empty { font-size: 64px; cursor: pointer;
+    transform-origin: 50% 92%; animation: wobble 3.2s ease-in-out infinite; }
+  #empty img { width: 96px; -webkit-user-drag: none; vertical-align: middle; }
+  @keyframes wobble {
+    0%, 68%, 100% { transform: rotate(0deg); }
+    72% { transform: rotate(-7deg); }
+    77% { transform: rotate(6deg); }
+    82% { transform: rotate(-4deg); }
+    87% { transform: rotate(2deg); }
+  }
   /* 몬스터볼 (PokeAPI 아이템 스프라이트): 이벤트 순간에만 날아와서 연출 */
-  #ball { position: absolute; left: 50%; bottom: 30px; margin-left: -30px;
+  #ball { position: absolute; left: 50%; bottom: 4px; margin-left: -30px;
     width: 60px; height: 60px; image-rendering: pixelated; -webkit-user-drag: none;
     display: none; pointer-events: none; transform-origin: 50% 100%; }
   #ball.throwing { animation: throwIn .4s ease-in; }
   @keyframes throwIn {
-    from { transform: translate(-150px, -130px) rotate(-540deg); }
+    from { transform: translate(-140px, -140px) rotate(-540deg); }
     to { transform: translate(0, 0) rotate(0); }
   }
-  #ball.wobbling { animation: wobble 1.2s ease-in-out infinite; }
-  @keyframes wobble {
+  #ball.wobbling { animation: ballWobble 1.2s ease-in-out infinite; }
+  @keyframes ballWobble {
     0%, 55%, 100% { transform: rotate(0); }
     10% { transform: rotate(-14deg); }
     25% { transform: rotate(12deg); }
@@ -64,35 +73,21 @@
   #ball.missOut { animation: missOut .5s ease-in forwards; }
   @keyframes missOut {
     30% { transform: translate(40px, -30px) rotate(180deg); }
-    100% { transform: translate(120px, 40px) rotate(540deg); opacity: 0; }
+    100% { transform: translate(110px, 50px) rotate(540deg); opacity: 0; }
   }
-  /* 도트 대화창 (포켓몬 게임 스타일): 흰 배경 + 검정 이중 테두리 + ▼ */
-  #bubble { margin-bottom: 10px; position: relative;
-    background: #f8f8f0; color: #181810;
-    border: 3px solid #181810; border-radius: 0;
-    box-shadow: inset 0 0 0 2px #f8f8f0, inset 0 0 0 4px #98a0a8;
-    padding: 8px 14px 10px 10px; white-space: normal; word-break: keep-all; text-align: center;
-    max-width: calc(100vw - 28px); display: none;
-    font: 11px 'Galmuri9', monospace; line-height: 1.5;
-    image-rendering: pixelated; }
-  #bubble::after { content: '▼'; position: absolute; right: 4px; bottom: 1px;
-    font: 8px 'Galmuri9', monospace; color: #181810;
-    animation: blinkCursor 1s steps(2, jump-none) infinite; }
-  @keyframes blinkCursor { 50% { opacity: 0; } }
-  #bubble b, #bubble b.notice { font: inherit; font-weight: 400; color: #d84020; }
-  /* 작업 중 세션 수 도트 배지 (펫 오른쪽 위) */
-  #badge { position: absolute; left: 50%; bottom: 136px; pointer-events: none; display: none;
-    transform: translateX(76px);
+  /* 작업 중 세션 수 도트 배지 (창 우상단, 펫 어깨 위) */
+  #badge { position: absolute; top: 2px; right: 2px; pointer-events: none; display: none;
     background: #f8f8f0; color: #181810; border: 2px solid #181810;
     padding: 1px 4px; font: 10px 'Galmuri9', monospace; }
   #flash { position: absolute; inset: 0; opacity: 0; pointer-events: none;
-    background: radial-gradient(circle at 50% 65%, rgba(255,255,255,.95) 15%, rgba(255,255,255,0) 65%); }
+    background: radial-gradient(circle, rgba(255,255,255,.95) 15%, rgba(255,255,255,0) 65%); }
   #flash.on { animation: flashAnim 1s ease; }
   @keyframes flashAnim { 0% {opacity:0} 40% {opacity:1} 60% {opacity:1} 100% {opacity:0} }
 </style>
 <div id="wrap">
-  <div id="bubble"></div>
-  <div id="empty" title="트레이 → 설정에서 몬스터를 추가하세요">🥚</div>
+  <div id="empty" title="클릭해서 몬스터를 추가하세요"><img
+    src="https://img.pokemondb.net/sprites/home/normal/egg.png"
+    onerror="this.replaceWith('🥚')"></div>
   <img id="sprite">
   <img id="ball" src="../../assets/pokeball.png">
   <div id="badge"></div>
