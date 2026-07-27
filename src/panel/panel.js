@@ -4,17 +4,22 @@
 
   const q = (id) => document.getElementById(id);
 
-  const fmtReset = (ms) => ms
-    ? '리셋 ' + new Date(ms).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-    : '';
+  // 링 둘레 (r=66 바깥=주간, r=53 안쪽=5시간)
+  const C_WK = 2 * Math.PI * 66;
+  const C_FH = 2 * Math.PI * 53;
 
-  function setBar(prefix, pct, resetsAt) {
+  const fmtTime = (ms) => new Date(ms).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
+  const fmtDate = (ms) => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()}`; };
+
+  // 70%/90%를 넘으면 링 색으로 경고 (빈 문자열이면 CSS 기본색으로 되돌아감)
+  const alertColor = (pct) => (pct >= 90 ? '#ff5f57' : pct >= 70 ? '#ffb340' : '');
+
+  function setRing(id, pct, circumference) {
     const has = typeof pct === 'number';
-    q(`${prefix}-pct`).textContent = has ? `${Math.round(pct)}%` : '—';
-    const bar = q(`${prefix}-bar`);
-    bar.style.width = has ? `${Math.min(100, pct)}%` : '0%';
-    bar.className = pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : '';
-    q(`${prefix}-reset`).textContent = has ? fmtReset(resetsAt) : '';
+    const el = q(id);
+    el.setAttribute('stroke-dasharray',
+      `${(has ? Math.min(100, pct) : 0) / 100 * circumference} ${circumference}`);
+    el.style.stroke = has ? alertColor(pct) : '';
   }
 
   ipcRenderer.on('panel-data', (_, d) => {
@@ -22,26 +27,41 @@
     document.documentElement.style.setProperty('--accent', d.source === 'codex' ? '#10a37f' : '#d97757');
     q('src').textContent = d.source === 'codex' ? 'Codex' : 'Claude';
     q('err').textContent = d.error ? '⚠️ 조회 실패' : '';
-    setBar('fh', d.usage?.fiveHour?.pct, d.usage?.fiveHour?.resetsAt);
-    setBar('wk', d.usage?.weekly?.pct, d.usage?.weekly?.resetsAt);
 
-    if (d.monster && d.usage) {
+    const fh = d.usage?.fiveHour;
+    const wk = d.usage?.weekly;
+    setRing('ring-wk', wk?.pct, C_WK);
+    setRing('ring-fh', fh?.pct, C_FH);
+
+    const put = (prefix, u, fmt) => {
+      const has = typeof u?.pct === 'number';
+      q(`${prefix}-pct`).textContent = has ? `${Math.round(u.pct)}%` : '—';
+      q(`${prefix}-reset`).textContent = has && u.resetsAt ? `${fmt(u.resetsAt)} 리셋` : '';
+    };
+    put('fh', fh, fmtTime);
+    put('wk', wk, fmtDate);
+    q('lg-wk').textContent = `주간 ${typeof wk?.pct === 'number' ? Math.round(wk.pct) + '%' : '—'}`;
+    q('lg-fh').textContent = `5시간 ${typeof fh?.pct === 'number' ? Math.round(fh.pct) + '%' : '—'}`;
+
+    const sprite = q('mon-sprite');
+    const egg = q('mon-egg');
+    if (d.monster) {
       const m = d.monster;
-      const pct = d.usage.weekly.pct;
-      q('mon-name').innerHTML = `<b>${m.stageName}</b>`;
-      q('mon-stage').textContent = `${m.stageIdx + 1}/${m.stageCount}단계`;
-      if (m.nextThreshold != null) {
-        q('mon-bar').style.width = `${Math.min(100, (pct / m.nextThreshold) * 100)}%`;
-        q('mon-next').textContent = `진화까지 ${Math.max(0, Math.ceil(m.nextThreshold - pct))}%p`;
-      } else {
-        q('mon-bar').style.width = '100%';
-        q('mon-next').textContent = '최종 진화';
-      }
+      sprite.src = 'file://' + m.gif;
+      sprite.alt = m.stageName;
+      sprite.hidden = false;
+      egg.hidden = true;
+      q('mon-name').textContent = m.stageName;
+      const left = (m.nextThreshold != null && typeof wk?.pct === 'number')
+        ? ` · 진화까지 ${Math.max(0, Math.ceil(m.nextThreshold - wk.pct))}%p`
+        : m.nextThreshold == null ? ' · 최종 진화' : '';
+      q('mon-stage').textContent = `${m.stageIdx + 1} / ${m.stageCount} 단계${left}`;
     } else {
+      sprite.hidden = true;
+      sprite.removeAttribute('src');
+      egg.hidden = false;
       q('mon-name').textContent = '몬스터 없음';
-      q('mon-stage').textContent = '';
-      q('mon-bar').style.width = '0%';
-      q('mon-next').textContent = '';
+      q('mon-stage').textContent = '설정에서 추가하세요';
     }
   });
 

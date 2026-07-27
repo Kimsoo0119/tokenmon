@@ -29,19 +29,33 @@
   h1 .src { color: var(--accent); font-weight: 800; }
   h1 .err { color: #ff6961; font-size: 11px; font-weight: 500; }
 
-  .sec { margin-bottom: 13px; }
-  .row { display: flex; justify-content: space-between; align-items: baseline; }
-  .row .label { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: .4px; }
-  .row b { font: 600 15px var(--mono); font-variant-numeric: tabular-nums; color: var(--text); }
-  .row .sub { font-size: 10.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  /* ── 링: 바깥은 주간, 안쪽 가는 링은 5시간, 한가운데는 현재 펫 ── */
+  .ring-wrap { display: flex; flex-direction: column; align-items: center;
+    gap: 2px; margin: 4px 0 12px; }
+  .ring { position: relative; width: 150px; height: 150px; }
+  .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring circle { transition: stroke-dasharray .5s cubic-bezier(.3,.8,.3,1), stroke .3s; }
+  /* SVG 속성에는 var()가 먹지 않으므로 링 색은 CSS 규칙으로 준다 */
+  #ring-wk { stroke: var(--accent); }
+  #ring-fh { stroke: #7ec8ff; }
+  .ring .mid { position: absolute; inset: 0; display: grid; place-items: center; }
+  .ring .mid img { width: 66px; height: 66px; object-fit: contain;
+    image-rendering: pixelated; }
+  .ring .mid .egg { font-size: 34px; filter: grayscale(.2) opacity(.8); }
+  #mon-name { font-size: 15px; font-weight: 700; letter-spacing: -.2px; }
+  #mon-stage { font: 11px var(--mono); color: var(--muted); letter-spacing: .06em; }
 
-  .bar { background: rgba(255,255,255,.08); border-radius: 99px; height: 5px;
-    overflow: hidden; margin: 6px 0 4px; }
-  .bar i { display: block; height: 100%; border-radius: 99px;
-    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 70%, transparent), var(--accent));
-    transition: width .45s cubic-bezier(.3,.8,.3,1); }
-  .bar i.warn { background: linear-gradient(90deg, #d9a13f, #ffb340); }
-  .bar i.danger { background: linear-gradient(90deg, #e0483f, #ff5f57); }
+  .legend { display: flex; gap: 14px; justify-content: center; margin-bottom: 12px; }
+  .legend div { display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .legend .dot { width: 7px; height: 7px; border-radius: 99px; flex: none; }
+
+  .duo { display: flex; gap: 10px; }
+  .duo > div { flex: 1; background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.06); border-radius: 10px; padding: 9px 10px; }
+  .duo .k { font-size: 10.5px; color: var(--muted); font-weight: 600; letter-spacing: .4px; }
+  .duo .v { font: 600 17px var(--mono); font-variant-numeric: tabular-nums; margin: 1px 0 2px; }
+  .duo .r { font-size: 10px; color: var(--faint); font-variant-numeric: tabular-nums; }
 
   .btns { display: flex; gap: 7px; margin-top: 14px; }
   button { flex: 1; background: var(--field); color: var(--text);
@@ -91,20 +105,28 @@
 </style>
 <div id="card">
   <h1><span>tokenmon <span class="src" id="src"></span></span><span class="err" id="err"></span></h1>
-  <div class="sec">
-    <div class="row"><span class="label">5시간</span><b id="fh-pct">—</b></div>
-    <div class="bar"><i id="fh-bar" style="width:0%"></i></div>
-    <div class="row"><span></span><span class="sub" id="fh-reset"></span></div>
+  <div class="ring-wrap">
+    <div class="ring">
+      <svg viewBox="0 0 150 150" aria-hidden="true">
+        <circle cx="75" cy="75" r="66" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="9"/>
+        <circle id="ring-wk" cx="75" cy="75" r="66" fill="none"
+                stroke-width="9" stroke-linecap="round" stroke-dasharray="0 414.7"/>
+        <circle cx="75" cy="75" r="53" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="5"/>
+        <circle id="ring-fh" cx="75" cy="75" r="53" fill="none"
+                stroke-width="5" stroke-linecap="round" stroke-dasharray="0 333"/>
+      </svg>
+      <div class="mid"><img id="mon-sprite" alt="" hidden><span class="egg" id="mon-egg">🥚</span></div>
+    </div>
+    <div id="mon-name">몬스터 없음</div>
+    <div id="mon-stage"></div>
   </div>
-  <div class="sec">
-    <div class="row"><span class="label">주간</span><b id="wk-pct">—</b></div>
-    <div class="bar"><i id="wk-bar" style="width:0%"></i></div>
-    <div class="row"><span></span><span class="sub" id="wk-reset"></span></div>
+  <div class="legend">
+    <div><span class="dot" style="background:var(--accent)"></span><span id="lg-wk">주간 —</span></div>
+    <div><span class="dot" style="background:#7ec8ff"></span><span id="lg-fh">5시간 —</span></div>
   </div>
-  <div class="sec">
-    <div class="row"><span class="label" id="mon-name">몬스터 없음</span><b id="mon-stage" style="font-size:13px"></b></div>
-    <div class="bar"><i id="mon-bar" style="width:0%"></i></div>
-    <div class="row"><span></span><span class="sub" id="mon-next"></span></div>
+  <div class="duo">
+    <div><div class="k">5시간</div><div class="v" id="fh-pct">—</div><div class="r" id="fh-reset"></div></div>
+    <div><div class="k">주간</div><div class="v" id="wk-pct">—</div><div class="r" id="wk-reset"></div></div>
   </div>
   <div class="btns">
     <button id="refresh">새로고침</button>

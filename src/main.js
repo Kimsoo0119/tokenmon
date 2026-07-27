@@ -85,6 +85,7 @@ function panelData() {
       stageIdx: idx,
       stageCount: m.stages.length,
       nextThreshold: m.thresholds[idx] ?? null,
+      gif: m.stages[idx].gif, // 패널 링 한가운데에 현재 단계 스프라이트를 띄움
     } : null,
   };
 }
