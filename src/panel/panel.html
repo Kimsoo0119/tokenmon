@@ -94,6 +94,13 @@
     border: 1px solid var(--field-line); border-radius: 7px; padding: 4px; max-width: 300px; }
   #settings-sec button { flex: none; padding: 5px 12px; }
   #settings-sec ul { padding: 0; margin: 0; }
+  /* 몬스터를 여러 마리 등록해도 패널이 계속 길어지지 않게 목록만 따로 스크롤 */
+  #monsters { max-height: 300px; overflow-y: auto; padding-right: 6px;
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.16) transparent; }
+  #monsters::-webkit-scrollbar { width: 6px; }
+  #monsters::-webkit-scrollbar-track { background: transparent; }
+  #monsters::-webkit-scrollbar-thumb { background: rgba(255,255,255,.16); border-radius: 99px; }
+  #monsters::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.26); }
   #settings-sec li { margin: 9px 0; list-style: none; line-height: 1.9; font-size: 12.5px; }
   #settings-sec li b { font-weight: 700; }
   #settings-sec .hint { color: var(--faint); font-size: 11px; margin-top: 4px; }
