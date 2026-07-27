@@ -1,11 +1,31 @@
 {
   "name": "tokenmon",
   "version": "0.1.0",
+  "description": "Claude Code / Codex 주간 사용량에 따라 진화하는 macOS 데스크탑 펫",
+  "keywords": [
+    "electron",
+    "desktop-pet",
+    "claude-code",
+    "codex",
+    "usage-tracker",
+    "macos"
+  ],
+  "homepage": "https://github.com/Kimsoo0119/tokenmon#readme",
+  "bugs": "https://github.com/Kimsoo0119/tokenmon/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kimsoo0119/tokenmon.git"
+  },
+  "license": "MIT",
+  "author": "Kimsoo0119",
   "private": true,
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "devDependencies": {
     "electron": "^43.2.0"
