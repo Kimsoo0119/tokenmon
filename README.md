@@ -9,17 +9,18 @@ Claude Code / Codex 주간 사용량에 따라 진화하는 macOS 데스크탑 �
 
 펫을 클릭하면 공격 모션과 함께 지금 사용량을 알려줍니다.
 
-**1단계 · 미뇽**
-
-![미뇽 단계](assets/stage-1.gif)
-
-**2단계 · 신뇽**
-
-![신뇽 단계](assets/stage-2.gif)
-
-**3단계 · 망나뇽** — 최종 단계에서는 남은 수치 없이 사용량만 알려줍니다.
-
-![망나뇽 단계](assets/stage-3.gif)
+<table>
+  <tr>
+    <td align="center"><img src="assets/stage-1.gif" alt="1단계 미뇽" width="280"></td>
+    <td align="center"><img src="assets/stage-2.gif" alt="2단계 신뇽" width="280"></td>
+    <td align="center"><img src="assets/stage-3.gif" alt="3단계 망나뇽" width="280"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>1단계 · 미뇽</b><br><sub>진화까지 2%p</sub></td>
+    <td align="center"><b>2단계 · 신뇽</b><br><sub>진화까지 30%p</sub></td>
+    <td align="center"><b>3단계 · 망나뇽</b><br><sub>최종 단계라 남은 수치 없이 사용량만</sub></td>
+  </tr>
+</table>
 
 ## 요구 사항
 
