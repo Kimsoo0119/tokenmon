@@ -14,7 +14,10 @@
     --sans: 'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo', sans-serif;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; background: transparent; overflow: hidden; }
+  html, body { margin: 0; background: transparent; overflow: hidden; height: 100%; }
+  /* 내용이 화면보다 길어질 때만 스크롤. 막대는 숨겨 카드 모서리를 가리지 않게 한다 */
+  body.scroll { overflow-y: auto; scrollbar-width: none; }
+  body.scroll::-webkit-scrollbar { display: none; }
   body { font: 13px/1.45 var(--sans);
     color: var(--text); -webkit-font-smoothing: antialiased; }
 

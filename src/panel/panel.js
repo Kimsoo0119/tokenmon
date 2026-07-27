@@ -72,11 +72,17 @@
     q('settings').textContent = sec.hidden ? '설정 ▾' : '설정 ▴';
   };
 
-  // 창 높이는 카드 실제 높이에 자동 추종 (고정 높이는 투명 여백/유령 그림자를 만듦)
+  // 창 높이는 카드 실제 높이에 자동 추종 (고정 높이는 투명 여백/유령 그림자를 만듦).
+  // 다만 화면 아래로 쓸 수 있는 높이를 넘길 수는 없어서, 그때는 안쪽을 스크롤한다.
   const card = q('card');
-  new ResizeObserver(() => {
-    ipcRenderer.send('panel-resize', Math.min(Math.ceil(card.offsetHeight) + 16, 900));
-  }).observe(card);
+  let maxHeight = 900; // panel-limit이 오기 전 임시값
+  function fitWindow() {
+    const want = Math.ceil(card.offsetHeight) + 16;
+    document.body.classList.toggle('scroll', want > maxHeight);
+    ipcRenderer.send('panel-resize', Math.min(want, maxHeight));
+  }
+  ipcRenderer.on('panel-limit', (_, h) => { maxHeight = h; fitWindow(); });
+  new ResizeObserver(fitWindow).observe(card);
 
   // 파일 선택 대화상자가 떠 있는 동안만 blur 닫힘 방지
   q('custom-files').addEventListener('click', () => ipcRenderer.send('panel-pinned', true));

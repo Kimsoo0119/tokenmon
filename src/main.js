@@ -112,10 +112,19 @@ function createPanelWindow() {
   panelWin.on('blur', () => { if (!panelPinned) panelWin.hide(); });
 }
 
+// 트레이 아래에 뜨므로 화면 아래쪽으로 쓸 수 있는 만큼이 창 높이의 한계다.
+// 이 값을 넘기면 렌더러가 카드 안쪽을 스크롤한다.
+function panelMaxHeight() {
+  const [x, y] = panelWin.getPosition();
+  const wa = screen.getDisplayNearestPoint({ x: x + PANEL_W / 2, y }).workArea;
+  return Math.max(280, wa.y + wa.height - y - 8);
+}
+
 function togglePanel() {
   if (panelWin.isVisible()) return panelWin.hide();
   const b = tray.getBounds();
   panelWin.setPosition(Math.round(b.x + b.width / 2 - PANEL_W / 2), Math.round(b.y + b.height + 4));
+  panelWin.webContents.send('panel-limit', panelMaxHeight());
   pushPanel();
   panelWin.show();
 }
@@ -243,7 +252,7 @@ ipcMain.on('panel-quit', () => app.quit());
 ipcMain.on('panel-pinned', (_, v) => { panelPinned = !!v; });
 ipcMain.on('panel-resize', (_, h) => {
   const [x, y] = panelWin.getPosition();
-  panelWin.setBounds({ x, y, width: PANEL_W, height: h });
+  panelWin.setBounds({ x, y, width: PANEL_W, height: Math.min(h, panelMaxHeight()) });
 });
 ipcMain.on('config-changed', () => {
   const prevSource = cfg.source;
