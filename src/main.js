@@ -1,7 +1,7 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
-const { loadConfig, saveConfig, cachedUsage } = require('./config');
+const { loadConfig, saveConfig, cachedUsage, isCacheFresh } = require('./config');
 const { stageIndex } = require('./evolution');
 const { fetchClaudeUsage } = require('./usage/claude');
 const { fetchCodexUsage } = require('./usage/codex');
@@ -36,10 +36,12 @@ let claudeBackoffUntil = 0; // usage API가 429를 주면 retry-after까지 조�
 
 // 성공 조회값을 config에 캐시 — 재시작 직후 백오프여도 펫이 바로 보이게
 function persistUsage(u) {
-  cfg.lastUsage = u;
-  cfg.lastUsageSource = cfg.source; // 어느 소스의 값인지 함께 남겨야 소스 전환 후 오용을 막음
+  // 소스별로 나눠 담아야 소스를 오가도 서로의 값을 덮어쓰지 않는다
+  cfg.usageCache[cfg.source] = { usage: u, at: Date.now() };
   saveConfig(configFile(), cfg);
 }
+
+const pollIntervalMs = () => (cfg.pollIntervalMin || 5) * 60 * 1000;
 
 async function poll() {
   try {
@@ -232,7 +234,7 @@ app.whenReady().then(() => {
   createBubbleWindow();
   watchEvents();
   poll();
-  setInterval(poll, (cfg.pollIntervalMin || 5) * 60 * 1000);
+  setInterval(poll, pollIntervalMs());
 });
 
 ipcMain.on('get-config-path', (e) => { e.returnValue = configFile(); });
@@ -250,19 +252,20 @@ ipcMain.on('config-changed', () => {
     const [x, y] = petWin.getPosition();
     petWin.setBounds({ x, y, width: petWinW(), height: petWinH() });
   }
-  // 소스를 바꿔도 이전 소스의 수치가 그대로 남아, 새로고침을 누르기 전까지
-  // 다른 LLM의 사용량이 계속 보이던 문제를 막는다. 디스크 캐시는 소스 태그가
-  // 달라 자연히 무시되므로 여기서는 화면에 보이는 값만 비우면 된다.
+  // 소스를 바꾸면 이전 소스의 수치를 그대로 두지 않고 새 소스의 캐시로 갈아끼운다.
+  // 캐시가 없으면 비워두고, 폴링 주기가 지난 값이면 뒤이어 다시 조회한다.
   const sourceChanged = cfg.source !== prevSource;
   if (sourceChanged) {
-    lastUsage = null;
-    lastPercent = null;
+    const cached = cachedUsage(cfg);
+    lastUsage = cached;
+    lastPercent = cached ? cached.weekly.pct : null;
     lastError = false;
   }
   updateTray();
   pushState();
   pushPanel();
-  if (sourceChanged) poll(); // 비운 직후 새 소스로 곧바로 다시 조회
+  // 오갈 때마다 조회하면 호출 제한에 걸리므로, 최근에 받아둔 값이 있으면 건너뛴다
+  if (sourceChanged && !isCacheFresh(cfg, cfg.source, pollIntervalMs())) poll();
 });
 ipcMain.on('tray-icon', (_, dataUrl) => {
   if (!tray) return;
