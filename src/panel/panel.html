@@ -70,9 +70,17 @@
 
   /* ── 인라인 설정 ───────────────────────────── */
   /* 내부 스크롤 없이 카드가 내용만큼 늘어나고 창이 따라옴 */
+  /* 설정을 펼쳐도 패널이 화면을 다 먹지 않도록, 이 안에서만 스크롤한다.
+     max-height는 남은 화면 높이에 맞춰 panel.js가 잡아준다. */
   #settings-sec { border-top: 1px solid var(--hairline); margin-top: 14px;
     padding-top: 6px; padding-bottom: 4px; }
-  #settings-sec:not([hidden]) { animation: fadeUp .25s ease; }
+  #settings-sec:not([hidden]) { animation: fadeUp .25s ease;
+    overflow-y: auto; overscroll-behavior: contain; padding-right: 8px;
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.16) transparent; }
+  #settings-sec::-webkit-scrollbar { width: 6px; }
+  #settings-sec::-webkit-scrollbar-track { background: transparent; }
+  #settings-sec::-webkit-scrollbar-thumb { background: rgba(255,255,255,.16); border-radius: 99px; }
+  #settings-sec::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.28); }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(-4px); } }
 
   #settings-sec section { margin: 13px 0; }
@@ -94,13 +102,6 @@
     border: 1px solid var(--field-line); border-radius: 7px; padding: 4px; max-width: 300px; }
   #settings-sec button { flex: none; padding: 5px 12px; }
   #settings-sec ul { padding: 0; margin: 0; }
-  /* 몬스터를 여러 마리 등록해도 패널이 계속 길어지지 않게 목록만 따로 스크롤 */
-  #monsters { max-height: 300px; overflow-y: auto; padding-right: 6px;
-    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.16) transparent; }
-  #monsters::-webkit-scrollbar { width: 6px; }
-  #monsters::-webkit-scrollbar-track { background: transparent; }
-  #monsters::-webkit-scrollbar-thumb { background: rgba(255,255,255,.16); border-radius: 99px; }
-  #monsters::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.26); }
   #settings-sec li { margin: 9px 0; list-style: none; line-height: 1.9; font-size: 12.5px; }
   #settings-sec li b { font-weight: 700; }
   #settings-sec .hint { color: var(--faint); font-size: 11px; margin-top: 4px; }

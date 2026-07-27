@@ -250,9 +250,13 @@ ipcMain.on('get-config-path', (e) => { e.returnValue = configFile(); });
 ipcMain.on('panel-refresh', poll);
 ipcMain.on('panel-quit', () => app.quit());
 ipcMain.on('panel-pinned', (_, v) => { panelPinned = !!v; });
-ipcMain.on('panel-resize', (_, h) => {
+ipcMain.on('panel-resize', (e, h) => {
   const [x, y] = panelWin.getPosition();
-  panelWin.setBounds({ x, y, width: PANEL_W, height: Math.min(h, panelMaxHeight()) });
+  const max = panelMaxHeight();
+  panelWin.setBounds({ x, y, width: PANEL_W, height: Math.min(h, max) });
+  // 창을 열 때 보낸 한계를 렌더러가 로드 전이라 놓쳤을 수 있어 함께 회신한다.
+  // 값이 그대로면 렌더러가 무시하므로 되돌이표가 생기지 않는다.
+  e.sender.send('panel-limit', max);
 });
 ipcMain.on('config-changed', () => {
   const prevSource = cfg.source;

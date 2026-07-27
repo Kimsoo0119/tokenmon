@@ -73,15 +73,29 @@
   };
 
   // 창 높이는 카드 실제 높이에 자동 추종 (고정 높이는 투명 여백/유령 그림자를 만듦).
-  // 다만 화면 아래로 쓸 수 있는 높이를 넘길 수는 없어서, 그때는 안쪽을 스크롤한다.
+  // 화면 아래로 쓸 수 있는 높이를 넘기면 설정 섹션 안에서 스크롤한다.
   const card = q('card');
   let maxHeight = 900; // panel-limit이 오기 전 임시값
+
   function fitWindow() {
+    if (sec.hidden) {
+      sec.style.maxHeight = '';
+    } else {
+      // 설정 위쪽(사용량 카드·버튼)은 항상 보여야 하므로 그만큼 뺀 나머지를 준다.
+      // 섹션 자신의 높이와 무관한 값이라 이 조정이 다시 크기 변화를 부르지 않는다.
+      const top = sec.getBoundingClientRect().top + window.scrollY;
+      sec.style.maxHeight = `${Math.max(180, maxHeight - top - 20)}px`;
+    }
     const want = Math.ceil(card.offsetHeight) + 16;
     document.body.classList.toggle('scroll', want > maxHeight);
     ipcRenderer.send('panel-resize', Math.min(want, maxHeight));
   }
-  ipcRenderer.on('panel-limit', (_, h) => { maxHeight = h; fitWindow(); });
+  // 같은 값이면 다시 맞추지 않는다 — 메인이 리사이즈마다 회신하므로 되돌이표를 끊는다
+  ipcRenderer.on('panel-limit', (_, h) => {
+    if (h === maxHeight) return;
+    maxHeight = h;
+    fitWindow();
+  });
   new ResizeObserver(fitWindow).observe(card);
 
   // 파일 선택 대화상자가 떠 있는 동안만 blur 닫힘 방지
