@@ -75,7 +75,7 @@ npm start
 
 ```bash
 npm run lint  # ESLint
-npm test      # 테스트 31개
+npm test      # 테스트 37개
 ```
 
 구조와 설계 배경은 [docs/design.md](docs/design.md)에 정리해두었습니다.
