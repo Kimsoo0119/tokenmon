@@ -74,7 +74,7 @@ Electron 앱 하나로, 메인 프로세스와 렌더러 창 세 개로 구성�
   "source": "claude",            // "claude" | "codex"
   "pollIntervalMin": 5,
   "petSize": 140,
-  "lastUsage": null,             // 마지막 성공 조회값 캐시
+  "usageCache": {},              // 소스별 { usage, at } 마지막 조회 캐시
   "petPosition": { "x": 0, "y": 0 },
   "activeMonster": "pikachu-line",
   "monsters": {
