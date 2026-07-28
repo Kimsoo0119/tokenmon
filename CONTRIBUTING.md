@@ -53,7 +53,7 @@ fix(usage): 소스를 바꿔도 이전 LLM의 수치가 남던 문제를 고칩�
 feat(panel): 사용량 패널을 링 형태로 새로 만듭니다
 ```
 
-주로 쓰는 범위는 `pet`, `panel`, `bubble`, `tray`, `usage`, `config`, `ci`입니다.
+주로 쓰는 범위는 `pet`, `panel`, `bubble`, `tray`, `usage`, `config`, `ci`입니다. 저장소의 `area:` 라벨도 같은 이름을 쓰므로, 이슈에 붙은 라벨을 보면 어떤 범위로 커밋할지 짐작하실 수 있습니다.
 
 ### 제목
 
