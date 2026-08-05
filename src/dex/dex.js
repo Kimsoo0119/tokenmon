@@ -157,7 +157,7 @@ $('add').onclick = async () => {
   $('sheet-status').textContent = '스프라이트를 받는 중…';
   const res = await ipcRenderer.invoke('add-monster', path);
   if (res.ok) {
-    $('sheet-status').textContent = '추가했어요';
+    $('sheet-status').textContent = '이제 이 계통을 키웁니다';
   } else {
     $('sheet-status').textContent = '실패: ' + res.error;
     $('add').disabled = false;

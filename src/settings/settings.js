@@ -96,7 +96,7 @@ $('poke-add').onclick = async () => {
   // 등록은 메인이 했으므로 설정 파일이 이미 바뀌어 있다. 여기서 저장하면 되레 덮어쓴다
   cfg = loadConfig(CONFIG_FILE);
   render();
-  $('poke-status').textContent = '추가 완료';
+  $('poke-status').textContent = '추가하고 이 계통으로 바꿨어요';
 };
 
 // --- 커스텀 몬스터 ---

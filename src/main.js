@@ -338,8 +338,15 @@ ipcMain.handle('add-monster', async (_, chainPath) => {
     const gifs = [];
     for (const slug of chainPath) gifs.push(await downloadGif(slug, cacheDir()));
     const id = monsterIdFor(chainPath);
-    cfg.monsters[id] = buildMonster(chainPath, gifs, (s) => koName(dexIndex, s));
-    if (!cfg.activeMonster) cfg.activeMonster = id;
+    const built = buildMonster(chainPath, gifs, (s) => koName(dexIndex, s));
+    // 이미 키워본 계통이면 손봐둔 임계값을 지우지 않는다
+    const prev = cfg.monsters[id];
+    const keepThresholds = prev && Array.isArray(prev.thresholds)
+      && prev.thresholds.length === built.thresholds.length;
+    cfg.monsters[id] = keepThresholds ? { ...built, thresholds: prev.thresholds } : built;
+    // 고른 포켓몬으로 바로 갈아탄다 — 추가했는데 화면이 그대로면 고른 보람이 없다.
+    // 이전 몬스터는 목록에 남아 있어 설정에서 언제든 되돌릴 수 있다.
+    cfg.activeMonster = id;
     syncDex();
     saveConfig(configFile(), cfg);
     pushState();
