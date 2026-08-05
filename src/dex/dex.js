@@ -22,7 +22,6 @@ let state = { seen: {}, caught: {}, activeSlugs: [] };
 let gen = gens[0];
 let query = '';
 let sheetPaths = [];
-let sheetSlug = null;
 
 // 이름은 상태에 따라 바뀌므로 여기서 넣지 않는다. 칸 뼈대만 만들어 캐시해두고
 // 공개 여부는 applyState가 클래스와 이름만 갈아끼운다.
@@ -43,13 +42,13 @@ function applyState() {
     const st = cellState(state, slug);
     const active = state.activeSlugs.includes(slug);
     cell.className = `cell ${st}${active ? ' active' : ''}`;
-    cell.querySelector('.nm').textContent = st === 'unseen' ? '???' : index.bySlug[slug].ko;
+    cell.querySelector('.nm').textContent = st === 'caught' ? index.bySlug[slug].ko : '???';
   }
 }
 
 function renderCounts() {
   const c = dexCounts(state, index);
-  $('counts').innerHTML = `공개 <b>${c.seen}</b> / ${c.total} · 도달 <b>${c.caught}</b>`;
+  $('counts').innerHTML = `도달 <b>${c.caught}</b> / ${c.total}`;
 }
 
 function render() {
@@ -100,7 +99,6 @@ $('search').addEventListener('input', () => {
 function openSheet(slug) {
   const e = index.bySlug[slug];
   if (!e) return;
-  sheetSlug = slug;
   const start = isStarter(index, slug);
   sheetPaths = start ? chainPathsFor(index, slug) : pathsThrough(index, slug);
 
@@ -125,7 +123,6 @@ function openSheet(slug) {
 
 function closeSheet() {
   $('veil').hidden = true;
-  sheetSlug = null;
 }
 
 grid.addEventListener('click', (e) => {
@@ -166,8 +163,6 @@ function setState(s) {
   document.documentElement.style.setProperty('--accent', s.source === 'codex' ? '#10a37f' : '#d97757');
   renderCounts();
   applyState();
-  // 시트를 띄운 채 등록했다면 방금 바뀐 기록으로 다시 그려준다
-  if (sheetSlug && !$('veil').hidden) $('sheet-name').textContent = index.bySlug[sheetSlug].ko;
 }
 
 ipcRenderer.on('dex-changed', (_, s) => setState(s));

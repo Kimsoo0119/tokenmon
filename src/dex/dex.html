@@ -66,11 +66,11 @@
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .cell .badge { position: absolute; top: 5px; right: 7px; font-size: 9px; }
 
-  /* 아직 등록한 적 없는 종은 실루엣만. brightness(0)은 알파를 살리므로 윤곽이 남는다 */
-  .cell.unseen img { filter: brightness(0) saturate(0); opacity: .8; }
-  .cell.unseen .nm { color: var(--faint); }
-  .cell.seen img { filter: grayscale(1) contrast(.92); opacity: .72; }
-  .cell.seen .nm { color: var(--muted); }
+  /* 실제로 그 단계까지 키워본 종만 모습을 드러낸다. 계통을 등록해두었을 뿐
+     아직 닿지 못한 종은 미등록과 똑같이 실루엣이다 — 도감에 색이 켜지는 것은
+     도달했다는 뜻이어야 한다. brightness(0)은 알파를 살리므로 윤곽이 남는다 */
+  .cell.unseen img, .cell.seen img { filter: brightness(0) saturate(0); opacity: .8; }
+  .cell.unseen .nm, .cell.seen .nm { color: var(--faint); }
   .cell.caught img { filter: none; }
 
   .cell[data-role=start] .badge { color: var(--accent); }
