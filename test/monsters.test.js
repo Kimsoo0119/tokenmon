@@ -1,7 +1,9 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { buildIndex } = require('../src/dex');
-const { monsterIdFor, buildMonster, stageSlugs, seenSlugsFor, mergeStamps } = require('../src/monsters');
+const {
+  monsterIdFor, buildMonster, stageSlugs, seenSlugsFor, reachedSlugs, mergeStamps,
+} = require('../src/monsters');
 
 const idx = buildIndex({
   pikachu: { no: 25, ko: '피카츄', gen: 1, from: 'pichu' },
@@ -59,6 +61,20 @@ test('seenSlugsFor: 직접 만든 몬스터는 빼놓는다', () =>
   assert.deepEqual(seenSlugsFor(idx, { 'custom-내펫': { stages: [{ slug: 'pichu' }] } }), []));
 test('seenSlugsFor: 도감에 없는 슬러그는 무시', () =>
   assert.deepEqual(seenSlugsFor(idx, { greninja: { stages: [{ slug: 'greninja' }] } }), []));
+
+const pichuLine = {
+  stages: [{ slug: 'pichu' }, { slug: 'pikachu' }, { slug: 'raichu' }],
+  thresholds: [33, 67],
+};
+
+test('reachedSlugs: 첫 단계만 도달', () =>
+  assert.deepEqual(reachedSlugs(pichuLine, 10), ['pichu']));
+// 5분 만에 10%에서 80%로 뛰어도 건너뛴 단계가 도감에 구멍으로 남지 않아야 한다
+test('reachedSlugs: 건너뛴 중간 단계도 함께 남긴다', () =>
+  assert.deepEqual(reachedSlugs(pichuLine, 80), ['pichu', 'pikachu', 'raichu']));
+test('reachedSlugs: 소진율을 모르면 빈 결과', () =>
+  assert.deepEqual(reachedSlugs(pichuLine, null), []));
+test('reachedSlugs: 몬스터가 없으면 빈 결과', () => assert.deepEqual(reachedSlugs(null, 50), []));
 
 test('mergeStamps: 처음 본 종만 찍고 변경 여부를 알려준다', () => {
   const bag = { pichu: 100 };

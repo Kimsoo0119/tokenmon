@@ -1,10 +1,10 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
-const { loadConfig, saveConfig, cachedUsage, isCacheFresh } = require('./config');
+const { loadConfig, saveConfig, cachedUsage, isCacheFresh, isCustomId } = require('./config');
 const { stageIndex } = require('./evolution');
 const { buildIndex, koName } = require('./dex');
-const { monsterIdFor, buildMonster } = require('./monsters');
+const { monsterIdFor, buildMonster, seenSlugsFor, reachedSlugs, mergeStamps } = require('./monsters');
 const { downloadGif } = require('./pokeapi');
 const { fetchClaudeUsage } = require('./usage/claude');
 const { fetchCodexUsage } = require('./usage/codex');
@@ -36,6 +36,23 @@ function currentState() {
 
 function pushState() {
   if (petWin && !petWin.isDestroyed()) petWin.webContents.send('state', currentState());
+}
+
+// 도감 기록은 메인만 쓴다. 렌더러가 각자 남기면 설정을 저장할 때마다 서로의
+// 기록을 덮으므로, 렌더러는 읽기만 하고 여기서만 갱신한다.
+// 등록한 몬스터의 계통을 합집합으로 쌓기 때문에 몬스터를 지워도 기록은 남는다.
+function syncDex() {
+  const now = Date.now();
+  let changed = mergeStamps(cfg.dex.seen, seenSlugsFor(dexIndex, cfg.monsters), now);
+  const active = cfg.monsters[cfg.activeMonster];
+  if (active && !isCustomId(cfg.activeMonster)) {
+    if (mergeStamps(cfg.dex.caught, reachedSlugs(active, lastPercent), now)) changed = true;
+  }
+  return changed;
+}
+
+function persistDex() {
+  if (syncDex()) saveConfig(configFile(), cfg);
 }
 
 let claudeBackoffUntil = 0; // usage API가 429를 주면 retry-after까지 조회 중단
@@ -71,6 +88,7 @@ async function poll() {
       lastError = true; // 마지막 성공 값 유지
     }
   }
+  persistDex();
   updateTray();
   pushState();
   pushPanel();
@@ -234,6 +252,7 @@ app.whenReady().then(() => {
     lastUsage = cached;
     lastPercent = cached.weekly.pct; // 첫 폴링 전/백오프 중에도 마지막 값으로 표시
   }
+  persistDex(); // 재시작 직후에도 마지막으로 알던 단계까지는 기록해둔다
   tray = new Tray(nativeImage.createEmpty());
   tray.setTitle(' …');
   const menu = Menu.buildFromTemplate([
@@ -267,6 +286,7 @@ ipcMain.handle('add-monster', async (_, chainPath) => {
     const id = monsterIdFor(chainPath);
     cfg.monsters[id] = buildMonster(chainPath, gifs, (s) => koName(dexIndex, s));
     if (!cfg.activeMonster) cfg.activeMonster = id;
+    syncDex();
     saveConfig(configFile(), cfg);
     pushState();
     pushPanel();
@@ -302,6 +322,7 @@ ipcMain.on('config-changed', () => {
     lastPercent = cached ? cached.weekly.pct : null;
     lastError = false;
   }
+  persistDex(); // 활성 몬스터나 임계값이 바뀌었을 수 있다
   updateTray();
   pushState();
   pushPanel();
