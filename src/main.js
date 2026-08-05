@@ -4,14 +4,16 @@ const fs = require('node:fs');
 const { loadConfig, saveConfig, cachedUsage, isCacheFresh, isCustomId } = require('./config');
 const { stageIndex } = require('./evolution');
 const { buildIndex, koName } = require('./dex');
-const { monsterIdFor, buildMonster, seenSlugsFor, reachedSlugs, mergeStamps } = require('./monsters');
+const {
+  monsterIdFor, buildMonster, stageSlugs, seenSlugsFor, reachedSlugs, mergeStamps,
+} = require('./monsters');
 const { downloadGif } = require('./pokeapi');
 const { fetchClaudeUsage } = require('./usage/claude');
 const { fetchCodexUsage } = require('./usage/codex');
 
 const dexIndex = buildIndex(require('../assets/dex.json'));
 
-let cfg, petWin, panelWin, bubbleWin, tray;
+let cfg, petWin, panelWin, bubbleWin, dexWin, tray;
 let bubbleTimer;
 let lastPercent = null;
 let lastUsage = null; // { fiveHour: {pct, resetsAt}|null, weekly: {pct, resetsAt} }
@@ -52,7 +54,9 @@ function syncDex() {
 }
 
 function persistDex() {
-  if (syncDex()) saveConfig(configFile(), cfg);
+  if (!syncDex()) return;
+  saveConfig(configFile(), cfg);
+  pushDex();
 }
 
 let claudeBackoffUntil = 0; // usage API가 429를 주면 retry-after까지 조회 중단
@@ -208,6 +212,43 @@ function createPetWindow() {
   petWin.webContents.on('did-finish-load', pushState);
 }
 
+// 도감은 649칸을 스크롤하며 보는 화면이라 패널에 넣을 수 없다. 패널은 트레이
+// 아래 남은 높이에 맞춰 스스로 크기를 조절하는데, 거기에 그리드를 얹으면 그
+// 조절이 무너진다. 다른 창들과 달리 위에 뜨지 않고 크기를 바꿀 수 있다.
+function dexState() {
+  const active = cfg.monsters[cfg.activeMonster];
+  return {
+    seen: cfg.dex.seen,
+    caught: cfg.dex.caught,
+    activeSlugs: active && !isCustomId(cfg.activeMonster) ? stageSlugs(active).filter(Boolean) : [],
+    source: cfg.source,
+  };
+}
+
+function pushDex() {
+  if (dexWin && !dexWin.isDestroyed()) dexWin.webContents.send('dex-changed', dexState());
+}
+
+function openDex() {
+  if (dexWin && !dexWin.isDestroyed()) {
+    dexWin.show();
+  } else {
+    dexWin = new BrowserWindow({
+      width: 880, height: 620, minWidth: 520, minHeight: 400,
+      show: false, frame: false, titleBarStyle: 'hidden',
+      trafficLightPosition: { x: 12, y: 14 },
+      backgroundColor: '#18181b', // 투명 창 + 리사이즈는 유령 그림자를 남긴다
+      webPreferences: { nodeIntegration: true, contextIsolation: false },
+    });
+    dexWin.loadFile(path.join(__dirname, 'dex', 'dex.html'));
+    dexWin.once('ready-to-show', () => dexWin.show());
+    dexWin.on('closed', () => { dexWin = null; });
+  }
+  // 독 아이콘을 숨긴 앱이라 창을 띄우는 것만으로는 키보드 초점이 오지 않는다.
+  // 이게 없으면 도감을 열어도 검색창에 글자가 들어가지 않는다.
+  app.focus({ steal: true });
+}
+
 // 설정은 패널의 인라인 섹션으로 통일 — 패널을 트레이 밑에 펼친 상태로 연다
 function openPanelSettings() {
   if (!panelWin || panelWin.isDestroyed()) return;
@@ -256,6 +297,7 @@ app.whenReady().then(() => {
   tray = new Tray(nativeImage.createEmpty());
   tray.setTitle(' …');
   const menu = Menu.buildFromTemplate([
+    { label: '도감', click: openDex },
     { label: '설정', click: openPanelSettings },
     { label: '지금 새로고침', click: poll },
     { type: 'separator' },
@@ -272,6 +314,9 @@ app.whenReady().then(() => {
 });
 
 ipcMain.on('get-config-path', (e) => { e.returnValue = configFile(); });
+ipcMain.handle('dex-state', () => dexState());
+ipcMain.on('open-dex', openDex);
+ipcMain.on('dex-close', () => { if (dexWin && !dexWin.isDestroyed()) dexWin.hide(); });
 // 패널과 도감이 각자 등록 코드를 들면 언젠가 서로 어긋나므로 메인에 하나만 둔다.
 // 스프라이트를 모두 받은 뒤에야 설정을 건드려서, 도중에 실패해도 설정은 멀쩡하다.
 ipcMain.handle('add-monster', async (_, chainPath) => {
@@ -290,6 +335,7 @@ ipcMain.handle('add-monster', async (_, chainPath) => {
     saveConfig(configFile(), cfg);
     pushState();
     pushPanel();
+    pushDex();
     return { ok: true, id };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -326,6 +372,7 @@ ipcMain.on('config-changed', () => {
   updateTray();
   pushState();
   pushPanel();
+  pushDex(); // 활성 몬스터가 바뀌면 도감에서 표시하는 칸도 달라진다
   // 오갈 때마다 조회하면 호출 제한에 걸리므로, 최근에 받아둔 값이 있으면 건너뛴다
   if (sourceChanged && !isCacheFresh(cfg, cfg.source, pollIntervalMs())) poll();
 });

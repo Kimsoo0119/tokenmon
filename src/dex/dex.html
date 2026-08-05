@@ -1,0 +1,137 @@
+<meta charset="utf-8">
+<style>
+  :root {
+    --accent: #d97757;            /* Claude 코럴 (Codex면 JS가 틸로 교체) */
+    --bg: #18181b;
+    --hairline: rgba(255, 255, 255, .07);
+    --text: #ececf0;
+    --muted: #8e8e96;
+    --faint: #626269;
+    --field: rgba(255, 255, 255, .06);
+    --field-line: rgba(255, 255, 255, .12);
+    --mono: ui-monospace, 'SF Mono', Menlo, monospace;
+    --sans: 'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
+  body { font: 13px/1.45 var(--sans); color: var(--text);
+    -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; }
+
+  /* ── 머리말 ── 신호등 버튼 자리를 비워두고, 빈 곳은 창을 끄는 손잡이로 쓴다 ── */
+  header { -webkit-app-region: drag; flex: none;
+    padding: 12px 16px 10px 82px; border-bottom: 1px solid var(--hairline);
+    display: flex; align-items: center; gap: 12px; }
+  h1 { font-size: 13px; font-weight: 700; letter-spacing: -.2px; margin: 0; white-space: nowrap; }
+  #counts { font: 11px var(--mono); color: var(--muted);
+    font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #counts b { color: var(--accent); font-weight: 600; }
+  #search { -webkit-app-region: no-drag; margin-left: auto;
+    width: 180px; background: var(--field); color: var(--text);
+    border: 1px solid var(--field-line); border-radius: 8px; padding: 5px 9px;
+    font: 12px var(--sans); outline: none; }
+  #search:focus { border-color: var(--accent); }
+
+  /* ── 세대 탭 ── */
+  nav { -webkit-app-region: drag; flex: none;
+    display: flex; gap: 5px; padding: 8px 16px; border-bottom: 1px solid var(--hairline); }
+  nav button { -webkit-app-region: no-drag;
+    background: transparent; color: var(--muted); border: 1px solid transparent;
+    border-radius: 7px; padding: 4px 11px; font: 500 12px var(--sans); cursor: pointer;
+    transition: background .12s, color .12s; }
+  nav button:hover { background: var(--field); color: var(--text); }
+  nav button.on { background: var(--field); border-color: var(--field-line); color: var(--text); }
+  nav .sep { flex: 1; }
+  #legend { font-size: 11px; color: var(--faint); align-self: center; white-space: nowrap; }
+  #legend .s { color: var(--accent); }
+
+  /* ── 도감 ── */
+  main { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 12px 16px 20px;
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.16) transparent; }
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
+  #empty { color: var(--faint); font-size: 12px; padding: 24px 2px; }
+
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 1px;
+    background: rgba(255,255,255,.03); border: 1px solid transparent; border-radius: 10px;
+    padding: 6px 4px 7px; cursor: pointer; position: relative;
+    font: inherit; color: inherit; text-align: center;
+    /* 스크롤 밖 칸은 그리지 않는다. 한 탭에 156칸까지 들어가므로 효과가 크다 */
+    content-visibility: auto; contain-intrinsic-size: 96px 104px;
+    transition: background .12s, border-color .12s; }
+  .cell:hover { background: rgba(255,255,255,.08); border-color: var(--field-line); }
+  .cell.active { border-color: var(--accent); }
+
+  .cell .no { font: 10px var(--mono); color: var(--faint); font-variant-numeric: tabular-nums; }
+  .cell img { width: 56px; height: 48px; object-fit: contain; image-rendering: pixelated; }
+  .cell .nm { font-size: 11px; line-height: 1.3; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cell .badge { position: absolute; top: 5px; right: 7px; font-size: 9px; }
+
+  /* 아직 등록한 적 없는 종은 실루엣만. brightness(0)은 알파를 살리므로 윤곽이 남는다 */
+  .cell.unseen img { filter: brightness(0) saturate(0); opacity: .8; }
+  .cell.unseen .nm { color: var(--faint); }
+  .cell.seen img { filter: grayscale(1) contrast(.92); opacity: .72; }
+  .cell.seen .nm { color: var(--muted); }
+  .cell.caught img { filter: none; }
+
+  .cell[data-role=start] .badge { color: var(--accent); }
+  .cell[data-role=evo] .badge { color: var(--faint); }
+  .cell img.broken { visibility: hidden; }
+
+  /* ── 상세 시트 ── */
+  #veil { position: fixed; inset: 0; background: rgba(0,0,0,.55);
+    display: grid; place-items: center; padding: 24px; }
+  #veil[hidden] { display: none; }
+  #sheet { background: #232327; border: 1px solid var(--field-line); border-radius: 14px;
+    padding: 18px 20px 16px; width: min(420px, 100%);
+    animation: pop .2s cubic-bezier(.2,.9,.3,1.2); }
+  @keyframes pop { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
+  #sheet .top { display: flex; align-items: center; gap: 14px; }
+  #sheet .top img { width: 72px; height: 64px; object-fit: contain; image-rendering: pixelated; }
+  #sheet h2 { font-size: 16px; margin: 0 0 2px; letter-spacing: -.2px; }
+  #sheet .meta { font: 11px var(--mono); color: var(--muted); }
+  #sheet .role { font-size: 11.5px; color: var(--muted); margin-top: 10px; line-height: 1.6; }
+  #sheet .role b { color: var(--text); }
+  #sheet select { width: 100%; margin-top: 10px; background: var(--field); color: var(--text);
+    border: 1px solid var(--field-line); border-radius: 8px; padding: 6px 8px;
+    font: 12px var(--sans); }
+  #sheet .btns { display: flex; gap: 7px; margin-top: 12px; }
+  #sheet button { flex: 1; background: var(--field); color: var(--text);
+    border: 1px solid var(--field-line); border-radius: 9px; padding: 7px 0;
+    font: 500 12px var(--sans); cursor: pointer; transition: background .12s; }
+  #sheet button:hover:not(:disabled) { background: rgba(255,255,255,.11); }
+  #sheet button:disabled { opacity: .5; cursor: default; }
+  #sheet #add { background: var(--accent); border-color: transparent; color: #1b1b1e; font-weight: 600; }
+  #sheet #add:hover:not(:disabled) { filter: brightness(1.08); }
+  #sheet-status { font-size: 11.5px; color: var(--muted); margin-top: 9px; min-height: 15px; }
+</style>
+
+<header>
+  <h1>tokenmon 도감</h1>
+  <div id="counts"></div>
+  <input id="search" type="search" placeholder="한글 이름으로 찾기" autocomplete="off">
+</header>
+
+<nav id="tabs">
+  <span class="sep"></span>
+  <span id="legend"><span class="s">●</span> 선택 가능 &nbsp; ▲ 진화로만 도달</span>
+</nav>
+
+<main><div id="grid"></div><div id="empty" hidden></div></main>
+
+<div id="veil" hidden>
+  <div id="sheet">
+    <div class="top">
+      <img id="sheet-sprite" alt="">
+      <div><h2 id="sheet-name"></h2><div class="meta" id="sheet-meta"></div></div>
+    </div>
+    <div class="role" id="sheet-role"></div>
+    <select id="sheet-paths" hidden></select>
+    <div id="sheet-status"></div>
+    <div class="btns">
+      <button id="close">닫기</button>
+      <button id="add">이 계통으로 키우기</button>
+    </div>
+  </div>
+</div>
+
+<script src="dex.js"></script>

@@ -18,7 +18,7 @@ module.exports = [
 
   {
     // 렌더러는 nodeIntegration이 켜져 있어 Node와 브라우저 전역이 함께 존재합니다
-    files: ['src/pet/*.js', 'src/panel/*.js', 'src/settings/*.js'],
+    files: ['src/pet/*.js', 'src/panel/*.js', 'src/settings/*.js', 'src/dex/*.js'],
     languageOptions: {
       globals: { ...globals.node, ...globals.browser },
     },
