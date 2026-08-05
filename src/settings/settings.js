@@ -3,8 +3,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { loadConfig, saveConfigPreserving } = require('../config');
 const { evenThresholds, validThresholds } = require('../evolution');
-const { resolveSlug, fetchEvolutionPaths, downloadGif } = require('../pokeapi');
+const { resolveSlug } = require('../pokeapi');
+const { buildIndex, chainPathsFor } = require('../dex');
 const namesKo = require('../../assets/names-ko.json');
+
+// 이름표는 1025종을 모두 담고 있어 도감 밖의 종을 입력해도 무엇을 찾았는지
+// 알 수 있다. 진화 경로는 등록할 수 있는 종만 담긴 도감에서 가져온다.
+const dexIndex = buildIndex(require('../../assets/dex.json'));
 
 const koBySlug = Object.fromEntries(Object.entries(namesKo).map(([k, v]) => [v, k]));
 const ko = (slug) => koBySlug[slug] || slug;
@@ -69,34 +74,31 @@ $('pet-size').onchange = () => { cfg.petSize = +$('pet-size').value; save(); };
 // --- 포켓몬 추가 ---
 let paths = [];
 $('poke-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('poke-lookup').click(); });
-$('poke-lookup').onclick = async () => {
-  $('poke-status').textContent = '조회 중…';
+$('poke-lookup').onclick = () => {
   $('poke-paths').hidden = $('poke-add').hidden = true;
-  try {
-    const slug = resolveSlug($('poke-name').value, namesKo);
-    paths = await fetchEvolutionPaths(slug);
-    $('poke-paths').innerHTML = paths
-      .map((p, i) => `<option value="${i}">${esc(p.map(ko).join(' → '))}</option>`).join('');
-    $('poke-paths').hidden = $('poke-add').hidden = false;
-    $('poke-status').textContent = '';
-  } catch (e) {
-    $('poke-status').textContent = '못 찾았어요: ' + e.message;
+  const slug = resolveSlug($('poke-name').value, namesKo);
+  if (!dexIndex.bySlug[slug]) {
+    // 6세대 이후는 펫으로 쓸 애니메이션 스프라이트가 없어 도감에도 없다.
+    // 받아보고 실패하는 것보다 여기서 바로 알려주는 편이 빠르고 정확하다.
+    $('poke-status').textContent = namesKo[$('poke-name').value.trim()]
+      ? '6세대 이후 포켓몬은 아직 등록할 수 없어요'
+      : '그런 이름은 못 찾았어요';
+    return;
   }
+  paths = chainPathsFor(dexIndex, slug);
+  $('poke-paths').innerHTML = paths
+    .map((p, i) => `<option value="${i}">${esc(p.map(ko).join(' → '))}</option>`).join('');
+  $('poke-paths').hidden = $('poke-add').hidden = false;
+  $('poke-status').textContent = '';
 };
 $('poke-add').onclick = async () => {
-  const p = paths[+$('poke-paths').value];
   $('poke-status').textContent = 'GIF 다운로드 중…';
-  try {
-    const stages = [];
-    for (const slug of p) stages.push({ name: ko(slug), gif: await downloadGif(slug, CACHE_DIR) });
-    const id = p.join('-');
-    cfg.monsters[id] = { displayName: ko(p[p.length - 1]), stages, thresholds: evenThresholds(stages.length) };
-    if (!cfg.activeMonster) cfg.activeMonster = id;
-    save();
-    $('poke-status').textContent = '추가 완료';
-  } catch (e) {
-    $('poke-status').textContent = '실패: ' + e.message;
-  }
+  const res = await ipcRenderer.invoke('add-monster', paths[+$('poke-paths').value]);
+  if (!res.ok) return void ($('poke-status').textContent = '실패: ' + res.error);
+  // 등록은 메인이 했으므로 설정 파일이 이미 바뀌어 있다. 여기서 저장하면 되레 덮어쓴다
+  cfg = loadConfig(CONFIG_FILE);
+  render();
+  $('poke-status').textContent = '추가 완료';
 };
 
 // --- 커스텀 몬스터 ---

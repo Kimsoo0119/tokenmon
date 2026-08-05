@@ -3,8 +3,13 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { loadConfig, saveConfig, cachedUsage, isCacheFresh } = require('./config');
 const { stageIndex } = require('./evolution');
+const { buildIndex, koName } = require('./dex');
+const { monsterIdFor, buildMonster } = require('./monsters');
+const { downloadGif } = require('./pokeapi');
 const { fetchClaudeUsage } = require('./usage/claude');
 const { fetchCodexUsage } = require('./usage/codex');
+
+const dexIndex = buildIndex(require('../assets/dex.json'));
 
 let cfg, petWin, panelWin, bubbleWin, tray;
 let bubbleTimer;
@@ -13,6 +18,7 @@ let lastUsage = null; // { fiveHour: {pct, resetsAt}|null, weekly: {pct, resetsA
 let lastError = false;
 
 const configFile = () => path.join(app.getPath('userData'), 'config.json');
+const cacheDir = () => path.join(app.getPath('userData'), 'cache');
 
 function currentState() {
   const m = cfg.monsters[cfg.activeMonster];
@@ -247,6 +253,28 @@ app.whenReady().then(() => {
 });
 
 ipcMain.on('get-config-path', (e) => { e.returnValue = configFile(); });
+// 패널과 도감이 각자 등록 코드를 들면 언젠가 서로 어긋나므로 메인에 하나만 둔다.
+// 스프라이트를 모두 받은 뒤에야 설정을 건드려서, 도중에 실패해도 설정은 멀쩡하다.
+ipcMain.handle('add-monster', async (_, chainPath) => {
+  try {
+    if (!Array.isArray(chainPath) || !chainPath.length) throw new Error('진화 경로가 비어 있어요');
+    // 도감에 있는 슬러그만 통과시킨다 — 경로를 벗어나는 이름이 파일 이름이 되는 걸 막는다
+    for (const slug of chainPath) {
+      if (!dexIndex.bySlug[slug]) throw new Error(`도감에 없는 종이에요: ${slug}`);
+    }
+    const gifs = [];
+    for (const slug of chainPath) gifs.push(await downloadGif(slug, cacheDir()));
+    const id = monsterIdFor(chainPath);
+    cfg.monsters[id] = buildMonster(chainPath, gifs, (s) => koName(dexIndex, s));
+    if (!cfg.activeMonster) cfg.activeMonster = id;
+    saveConfig(configFile(), cfg);
+    pushState();
+    pushPanel();
+    return { ok: true, id };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
 ipcMain.on('panel-refresh', poll);
 ipcMain.on('panel-quit', () => app.quit());
 ipcMain.on('panel-pinned', (_, v) => { panelPinned = !!v; });
