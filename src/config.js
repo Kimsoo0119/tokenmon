@@ -17,6 +17,13 @@ const DEFAULTS = {
   // 도감 기록. 등록해서 알게 된 종(seen)과 실제로 그 단계까지 키워본
   // 종(caught)을 슬러그 → 시각으로 담는다. 몬스터를 지워도 남는다.
   dex: { seen: {}, caught: {} },
+  // 도감을 쓰기로 했는지. 꺼져 있으면 예전처럼 아무 때나 포켓몬을 고를 수 있다.
+  dexEnabled: false,
+  // 규칙 없이 둘러보기 — 전 종을 공개하고 주간 1회 제한도 풀린다. 기록 자체는
+  // 그대로 쌓이므로 다시 끄면 진짜 진행도가 돌아온다.
+  dexFreeMode: false,
+  // 도감 안내를 끝까지 봤는지
+  dexOnboarded: false,
 };
 
 // 소스별 캐시로 대체된 옛 필드 — 남아 있으면 헷갈리므로 읽을 때 걷어낸다
@@ -27,7 +34,10 @@ const CUSTOM_PREFIX = 'custom-';
 
 // 렌더러는 창을 열 때 읽어둔 설정을 통째로 덮어쓰기 때문에, 그 사이 메인이
 // 갱신한 값이 사라진다. 메인만 쓰는 필드를 적어두고 저장 직전에 되돌린다.
-const MAIN_OWNED_KEYS = ['petPosition', 'usageCache', 'dex', 'activePickedResetAt'];
+const MAIN_OWNED_KEYS = [
+  'petPosition', 'usageCache', 'dex', 'activePickedResetAt',
+  'dexEnabled', 'dexFreeMode', 'dexOnboarded',
+];
 
 const SLUG = /^[a-z0-9-]+$/;
 

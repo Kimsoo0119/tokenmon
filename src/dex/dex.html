@@ -104,6 +104,27 @@
   #sheet #add { background: var(--accent); border-color: transparent; color: #1b1b1e; font-weight: 600; }
   #sheet #add:hover:not(:disabled) { filter: brightness(1.08); }
   #sheet-status { font-size: 11.5px; color: var(--muted); margin-top: 9px; min-height: 15px; }
+
+  /* ── 처음 켰을 때의 안내 ── */
+  #coach { position: fixed; inset: 0; background: rgba(0,0,0,.72);
+    display: grid; place-items: center; padding: 24px; }
+  #coach[hidden] { display: none; }
+  #coach .box { background: #232327; border: 1px solid var(--field-line); border-radius: 14px;
+    padding: 22px 24px 18px; width: min(400px, 100%); text-align: center;
+    animation: pop .2s cubic-bezier(.2,.9,.3,1.2); }
+  #coach .step { font: 11px var(--mono); color: var(--accent); letter-spacing: .08em; }
+  #coach .art { font-size: 30px; margin: 12px 0 10px; letter-spacing: 6px;
+    display: flex; gap: 10px; justify-content: center; align-items: center; min-height: 56px; }
+  #coach .art img { width: 56px; height: 52px; object-fit: contain; image-rendering: pixelated; }
+  #coach .art img.dim { filter: brightness(0) saturate(0); opacity: .8; }
+  #coach h3 { font-size: 15px; margin: 0 0 8px; letter-spacing: -.2px; }
+  #coach p { font-size: 12.5px; line-height: 1.65; color: var(--muted); margin: 0; }
+  #coach .dots { display: flex; gap: 5px; justify-content: center; margin: 16px 0 12px; }
+  #coach .dots i { width: 5px; height: 5px; border-radius: 99px; background: var(--field-line); }
+  #coach .dots i.on { background: var(--accent); }
+  #coach button { width: 100%; background: var(--accent); border: none; border-radius: 9px;
+    padding: 8px 0; font: 600 12.5px var(--sans); color: #1b1b1e; cursor: pointer; }
+  #coach button:hover { filter: brightness(1.08); }
 </style>
 
 <header>
@@ -132,6 +153,17 @@
       <button id="close">닫기</button>
       <button id="add">이 계통으로 키우기</button>
     </div>
+  </div>
+</div>
+
+<div id="coach" hidden>
+  <div class="box">
+    <div class="step" id="coach-step"></div>
+    <div class="art" id="coach-art"></div>
+    <h3 id="coach-title"></h3>
+    <p id="coach-body"></p>
+    <div class="dots" id="coach-dots"></div>
+    <button id="coach-next"></button>
   </div>
 </div>
 

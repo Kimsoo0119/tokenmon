@@ -28,19 +28,31 @@ function save() {
   render();
 }
 
-// 한 주에 한 마리만 키운다. 잠금 판정은 메인이 하고 여기서는 받아 쓴다.
+// 도감 설정과 잠금 판정은 메인이 하고 여기서는 받아 쓴다
 let pick = { locked: false, unlockAt: null };
+let dexOpt = { enabled: false, freeMode: false };
 const fmtDate = (ms) => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()}`; };
 
 // panel.js도 같은 이벤트를 듣는다 — 창 하나에 두 스크립트가 올라가 있어 각자 필요한 것만 본다
 ipcRenderer.on('panel-data', (_, d) => {
   if (!d || !d.pick) return;
-  const was = pick.locked;
   pick = d.pick;
-  if (was !== pick.locked) render();
+  dexOpt = { enabled: !!d.dexEnabled, freeMode: !!d.dexFreeMode };
+  render();
 });
 
+async function setDexOption(opt) {
+  const res = await ipcRenderer.invoke('set-dex-option', opt);
+  dexOpt = { enabled: res.enabled, freeMode: res.freeMode };
+  render();
+}
+$('dex-enabled').onchange = () => setDexOption({ enabled: $('dex-enabled').checked });
+$('dex-free').onchange = () => setDexOption({ freeMode: $('dex-free').checked });
+
 function applyLock() {
+  $('dex-enabled').checked = dexOpt.enabled;
+  $('dex-free').checked = dexOpt.freeMode;
+  $('dex-free').disabled = !dexOpt.enabled; // 도감을 켜야 의미가 있는 설정이다
   const why = pick.locked
     ? `이번 주에 키울 포켓몬은 이미 골랐어요${pick.unlockAt ? ` · ${fmtDate(pick.unlockAt)} 리셋 후에 바꿀 수 있어요` : ''}`
     : '';

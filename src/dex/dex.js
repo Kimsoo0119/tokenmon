@@ -18,7 +18,10 @@ const grid = $('grid');
 const gens = Object.keys(index.byGen).map(Number).sort((a, b) => a - b);
 const cache = new Map(); // 세대별 그리드 HTML — 탭을 오갈 때 다시 만들지 않는다
 
-let state = { seen: {}, caught: {}, activeSlugs: [], pick: { locked: false, unlockAt: null } };
+let state = {
+  seen: {}, caught: {}, activeSlugs: [], freeMode: false, onboarded: true,
+  pick: { locked: false, unlockAt: null },
+};
 let gen = gens[0];
 let query = '';
 let sheetPaths = [];
@@ -38,21 +41,26 @@ function cellHtml(slug) {
 
 // 도달해본 종만 이름을 드러낸다. 격자든 상세든 이 규칙은 같아야 한다 —
 // 한쪽에서만 가리면 눌러보는 것만으로 알아낼 수 있어 가리는 의미가 없다.
-const caught = (slug) => cellState(state, slug) === 'caught';
+// 규칙 없이 둘러보는 중이면 전부 드러낸다. 기록 자체는 건드리지 않으므로
+// 다시 끄면 진짜 진행도가 그대로 돌아온다.
+const caught = (slug) => state.freeMode || cellState(state, slug) === 'caught';
 const shownName = (slug) => (caught(slug) ? index.bySlug[slug].ko : '???');
 
 function applyState() {
   for (const cell of grid.children) {
     const slug = cell.dataset.slug;
     const active = state.activeSlugs.includes(slug);
-    cell.className = `cell ${cellState(state, slug)}${active ? ' active' : ''}`;
+    const st = caught(slug) ? 'caught' : cellState(state, slug);
+    cell.className = `cell ${st}${active ? ' active' : ''}`;
     cell.querySelector('.nm').textContent = shownName(slug);
   }
 }
 
 function renderCounts() {
   const c = dexCounts(state, index);
-  $('counts').innerHTML = `도달 <b>${c.caught}</b> / ${c.total}`;
+  $('counts').innerHTML = state.freeMode
+    ? `규칙 없이 둘러보는 중 · ${c.total}종`
+    : `도달 <b>${c.caught}</b> / ${c.total}`;
 }
 
 function render() {
@@ -180,6 +188,58 @@ function refreshSheet() {
   if (!$('veil').hidden) applyLock(false);
 }
 
+// --- 처음 켰을 때의 안내 ---
+// 실루엣·배지·주간 1회는 화면만 봐서는 알기 어려운 규칙이라 한 번은 짚어준다.
+const COACH = [
+  {
+    // 말로 풀기보다 실제 칸을 나란히 보여주는 편이 빠르다
+    art: `<img src="${STILL('bulbasaur')}" alt=""><img src="${STILL('ivysaur')}" class="dim" alt="">`,
+    title: '키워본 포켓몬만 색이 켜집니다',
+    body: '아직 그 단계까지 키우지 않은 종은 실루엣과 ???로 남습니다. '
+      + '계통을 등록해두기만 해서는 열리지 않아요.',
+  },
+  {
+    art: '<b style="color:var(--accent)">●</b> <b style="color:var(--faint)">▲</b>',
+    title: '●는 여기서부터, ▲는 진화로만',
+    body: '●는 바로 키우기 시작할 수 있는 종이고, ▲는 진화를 거쳐야 만나는 종입니다. '
+      + '▲를 눌러도 어디서 시작하는지 알려주고 그 자리에서 고를 수 있어요.',
+  },
+  {
+    art: '🗓',
+    title: '한 주에 한 마리를 고릅니다',
+    body: '고르고 나면 주간 사용량이 리셋될 때까지 바꿀 수 없습니다. '
+      + '규칙 없이 보고 싶다면 설정에서 «규칙 없이 둘러보기»를 켜세요.',
+  },
+];
+let coachAt = 0;
+
+function renderCoach() {
+  const c = COACH[coachAt];
+  $('coach-step').textContent = `${coachAt + 1} / ${COACH.length}`;
+  $('coach-art').innerHTML = c.art; // 이 문자열은 전부 여기서 만든 것이라 바깥 값이 섞이지 않는다
+  $('coach-title').textContent = c.title;
+  $('coach-body').textContent = c.body;
+  $('coach-dots').innerHTML = COACH.map((_, i) => `<i class="${i === coachAt ? 'on' : ''}"></i>`).join('');
+  $('coach-next').textContent = coachAt === COACH.length - 1 ? '시작하기' : '다음 ›';
+}
+
+$('coach-next').onclick = () => {
+  if (coachAt < COACH.length - 1) {
+    coachAt += 1;
+    return renderCoach();
+  }
+  $('coach').hidden = true;
+  state.onboarded = true;
+  ipcRenderer.send('dex-onboarded');
+};
+
+function maybeCoach() {
+  if (state.onboarded || !$('coach').hidden) return;
+  coachAt = 0;
+  renderCoach();
+  $('coach').hidden = false;
+}
+
 // --- 상태 ---
 function setState(s) {
   if (!s) return;
@@ -188,6 +248,7 @@ function setState(s) {
   renderCounts();
   applyState();
   refreshSheet();
+  maybeCoach();
 }
 
 ipcRenderer.on('dex-changed', (_, s) => setState(s));

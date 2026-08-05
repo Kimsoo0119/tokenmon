@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, dialog } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { loadConfig, saveConfig, cachedUsage, isCacheFresh, isCustomId } = require('./config');
@@ -45,9 +45,11 @@ const weeklyResetAt = () => (lastUsage && lastUsage.weekly ? lastUsage.weekly.re
 // 한 주에 한 마리를 끝까지 키우자는 규칙. 고른 시점의 주간 리셋 시각을 적어두고,
 // 그 시각이 지나 새 주가 시작되기 전에는 다른 계통으로 바꿀 수 없게 막는다.
 // 소진율을 아직 모르면 막지 않는다 — 조회에 실패했다고 갇히면 곤란하다.
+// 도감을 쓰지 않거나 규칙 없이 둘러보는 중이면 잠그지 않는다
 function pickLock() {
   const resetAt = weeklyResetAt();
-  const locked = !!cfg.activeMonster && resetAt != null && cfg.activePickedResetAt === resetAt;
+  const locked = !!cfg.dexEnabled && !cfg.dexFreeMode
+    && !!cfg.activeMonster && resetAt != null && cfg.activePickedResetAt === resetAt;
   return { locked, unlockAt: locked ? resetAt : null };
 }
 
@@ -145,6 +147,8 @@ function panelData() {
       gif: m.stages[idx].gif, // 패널 링 한가운데에 현재 단계 스프라이트를 띄움
     } : null,
     pick: pickLock(),
+    dexEnabled: !!cfg.dexEnabled,
+    dexFreeMode: !!cfg.dexFreeMode,
   };
 }
 
@@ -250,6 +254,9 @@ function dexState() {
     activeSlugs: active && !isCustomId(cfg.activeMonster) ? stageSlugs(active).filter(Boolean) : [],
     source: cfg.source,
     pick: pickLock(),
+    enabled: !!cfg.dexEnabled,
+    freeMode: !!cfg.dexFreeMode,
+    onboarded: !!cfg.dexOnboarded,
   };
 }
 
@@ -257,7 +264,29 @@ function pushDex() {
   if (dexWin && !dexWin.isDestroyed()) dexWin.webContents.send('dex-changed', dexState());
 }
 
-function openDex() {
+// 도감을 켜면 한 주에 한 마리라는 제약이 따라오므로, 켜기 전에 무엇이 달라지는지
+// 알리고 동의를 받는다. 렌더러의 confirm은 패널을 blur시켜 닫아버려 쓸 수 없다.
+async function confirmEnableDex() {
+  const { response } = await dialog.showMessageBox({
+    type: 'question',
+    buttons: ['취소', '활성화'],
+    defaultId: 1,
+    cancelId: 0,
+    message: '도감을 활성화할까요?',
+    detail: '키워본 포켓몬이 도감에 기록되고, 아직 키우지 않은 종은 실루엣으로 남습니다.\n\n'
+      + '대신 한 주에 한 마리만 고를 수 있게 됩니다. 주간 사용량이 리셋되기 전까지는 '
+      + '키우던 포켓몬을 바꿀 수 없습니다.\n\n'
+      + '설정에서 언제든 끄거나, 규칙 없이 둘러보기로 바꿀 수 있습니다.',
+  });
+  if (response !== 1) return false;
+  cfg.dexEnabled = true;
+  saveConfig(configFile(), cfg);
+  pushPanel();
+  return true;
+}
+
+async function openDex() {
+  if (!cfg.dexEnabled && !(await confirmEnableDex())) return;
   if (dexWin && !dexWin.isDestroyed()) {
     dexWin.show();
   } else {
@@ -343,6 +372,19 @@ app.whenReady().then(() => {
 
 ipcMain.on('get-config-path', (e) => { e.returnValue = configFile(); });
 ipcMain.handle('dex-state', () => dexState());
+// 도감 설정도 메인이 소유한다 — 렌더러가 각자 쓰면 저장할 때마다 서로를 덮는다
+ipcMain.handle('set-dex-option', (_, opt) => {
+  if (typeof opt.enabled === 'boolean') cfg.dexEnabled = opt.enabled;
+  if (typeof opt.freeMode === 'boolean') cfg.dexFreeMode = opt.freeMode;
+  saveConfig(configFile(), cfg);
+  pushPanel();
+  pushDex();
+  return { ok: true, enabled: !!cfg.dexEnabled, freeMode: !!cfg.dexFreeMode };
+});
+ipcMain.on('dex-onboarded', () => {
+  cfg.dexOnboarded = true;
+  saveConfig(configFile(), cfg);
+});
 // 활성 몬스터 변경도 메인이 판정한다 — 렌더러가 직접 설정을 고치면 잠금을 우회한다
 ipcMain.handle('set-active-monster', (_, id) => {
   // 방금 렌더러가 추가한 몬스터일 수 있다 — config-changed보다 먼저 닿았으면 다시 읽는다
