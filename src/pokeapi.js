@@ -6,31 +6,8 @@ function resolveSlug(input, namesKo) {
   return namesKo[t] || t.toLowerCase();
 }
 
-function chainPaths(node) {
-  const paths = [];
-  (function walk(n, acc) {
-    const cur = [...acc, n.species.name];
-    if (!n.evolves_to.length) return paths.push(cur);
-    for (const next of n.evolves_to) walk(next, cur);
-  })(node, []);
-  return paths;
-}
-
 function assertSlug(slug) {
   if (!/^[a-z0-9-]+$/.test(slug)) throw new Error(`잘못된 이름: ${slug}`);
-}
-
-async function getJson(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`${url} → ${res.status}`);
-  return res.json();
-}
-
-async function fetchEvolutionPaths(slug) {
-  assertSlug(slug);
-  const sp = await getJson(`https://pokeapi.co/api/v2/pokemon-species/${slug}`);
-  const chain = await getJson(sp.evolution_chain.url);
-  return chainPaths(chain.chain);
 }
 
 async function downloadGif(slug, destDir) {
@@ -44,4 +21,4 @@ async function downloadGif(slug, destDir) {
   return dest;
 }
 
-module.exports = { resolveSlug, chainPaths, fetchEvolutionPaths, downloadGif };
+module.exports = { resolveSlug, downloadGif };

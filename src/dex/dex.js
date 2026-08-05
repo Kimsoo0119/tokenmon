@@ -10,9 +10,8 @@ const index = buildIndex(require('../../assets/dex.json'));
 const STILL = (slug) => `https://img.pokemondb.net/sprites/black-white/normal/${slug}.png`;
 const ANIM = (slug) => `https://img.pokemondb.net/sprites/black-white/anim/normal/${slug}.gif`;
 
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
-  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-));
+const { esc } = require('../esc');
+
 const $ = (id) => document.getElementById(id);
 
 const grid = $('grid');

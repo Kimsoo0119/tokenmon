@@ -4,6 +4,7 @@ const path = require('node:path');
 const { loadConfig, saveConfigPreserving } = require('../config');
 const { evenThresholds, validThresholds } = require('../evolution');
 const { resolveSlug } = require('../pokeapi');
+const { esc } = require('../esc');
 const { buildIndex, chainPathsFor } = require('../dex');
 const namesKo = require('../../assets/names-ko.json');
 
@@ -13,9 +14,6 @@ const dexIndex = buildIndex(require('../../assets/dex.json'));
 
 const koBySlug = Object.fromEntries(Object.entries(namesKo).map(([k, v]) => [v, k]));
 const ko = (slug) => koBySlug[slug] || slug;
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
-  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-));
 
 const CONFIG_FILE = ipcRenderer.sendSync('get-config-path');
 const CACHE_DIR = path.join(path.dirname(CONFIG_FILE), 'cache');
