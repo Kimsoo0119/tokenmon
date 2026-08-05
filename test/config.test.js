@@ -3,7 +3,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
-const { loadConfig, saveConfig, DEFAULTS, cachedUsage, isCacheFresh } = require('../src/config');
+const {
+  loadConfig, saveConfig, saveConfigPreserving, DEFAULTS, isCustomId, cachedUsage, isCacheFresh,
+} = require('../src/config');
 
 const tmp = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'tokemon-')), 'config.json');
 
@@ -73,4 +75,63 @@ test('예전 단일 캐시 필드는 읽을 때 걷어낸다', () => {
   assert.equal('lastUsage' in cfg, false);
   assert.equal('lastUsageSource' in cfg, false);
   assert.deepEqual(cfg.usageCache, {});
+});
+
+test('isCustomId: 직접 만든 몬스터만 참', () => {
+  assert.equal(isCustomId('custom-내펫'), true);
+  assert.equal(isCustomId('pichu-pikachu-raichu'), false);
+});
+
+test('도감 기록이 없던 설정에도 빈 기록이 생긴다', () => {
+  const f = tmp();
+  fs.writeFileSync(f, JSON.stringify({ source: 'codex' }));
+  assert.deepEqual(loadConfig(f).dex, { seen: {}, caught: {} });
+});
+test('도감 기록이 반쪽이면 나머지를 채운다', () => {
+  const f = tmp();
+  fs.writeFileSync(f, JSON.stringify({ dex: { seen: { pichu: 1 } } }));
+  const dex = loadConfig(f).dex;
+  assert.deepEqual(dex.seen, { pichu: 1 });
+  assert.deepEqual(dex.caught, {});
+});
+
+// id를 '-'로 쪼개는 방식으로는 되살릴 수 없는 종들이라 회귀를 막아둔다
+const withGifs = (id, ...gifs) => ({
+  monsters: { [id]: { displayName: 'x', stages: gifs.map((g) => ({ name: 'x', gif: g })) } },
+});
+
+test('스프라이트 경로에서 슬러그를 되살린다', () => {
+  const f = tmp();
+  fs.writeFileSync(f, JSON.stringify(withGifs('mime-jr-mr-mime', '/c/mime-jr.gif', '/c/mr-mime.gif')));
+  const stages = loadConfig(f).monsters['mime-jr-mr-mime'].stages;
+  assert.deepEqual(stages.map((s) => s.slug), ['mime-jr', 'mr-mime']);
+});
+test('직접 만든 몬스터에는 슬러그를 붙이지 않는다', () => {
+  const f = tmp();
+  fs.writeFileSync(f, JSON.stringify(withGifs('custom-mypet', '/c/custom-mypet-0.gif')));
+  assert.equal(loadConfig(f).monsters['custom-mypet'].stages[0].slug, undefined);
+});
+test('이미 슬러그가 있으면 건드리지 않는다', () => {
+  const f = tmp();
+  fs.writeFileSync(f, JSON.stringify({
+    monsters: { pichu: { stages: [{ name: 'x', gif: '/c/pikachu.gif', slug: 'pichu' }] } },
+  }));
+  assert.equal(loadConfig(f).monsters.pichu.stages[0].slug, 'pichu');
+});
+
+test('설정을 저장해도 메인이 가진 값은 살아남는다', () => {
+  const f = tmp();
+  saveConfig(f, {
+    ...DEFAULTS,
+    petPosition: { x: 10, y: 20 },
+    usageCache: { claude: { usage: claudeUsage, at: 1000 } },
+    dex: { seen: { pichu: 1 }, caught: { pichu: 2 } },
+  });
+  // 렌더러가 창을 열 때 읽어둔 낡은 설정 — 도감도 캐시도 위치도 비어 있다
+  saveConfigPreserving(f, { ...DEFAULTS, source: 'codex' });
+  const after = loadConfig(f);
+  assert.equal(after.source, 'codex');
+  assert.deepEqual(after.petPosition, { x: 10, y: 20 });
+  assert.deepEqual(after.dex, { seen: { pichu: 1 }, caught: { pichu: 2 } });
+  assert.equal(after.usageCache.claude.at, 1000);
 });

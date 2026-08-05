@@ -1,7 +1,7 @@
 const { ipcRenderer, webUtils } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
-const { loadConfig, saveConfig } = require('../config');
+const { loadConfig, saveConfigPreserving } = require('../config');
 const { evenThresholds, validThresholds } = require('../evolution');
 const { resolveSlug, fetchEvolutionPaths, downloadGif } = require('../pokeapi');
 const namesKo = require('../../assets/names-ko.json');
@@ -20,8 +20,7 @@ const $ = (id) => document.getElementById(id);
 const list = $('monsters');
 
 function save() {
-  cfg.petPosition = loadConfig(CONFIG_FILE).petPosition; // main이 갱신한 위치 보존
-  saveConfig(CONFIG_FILE, cfg);
+  saveConfigPreserving(CONFIG_FILE, cfg); // 펫 위치·사용량 캐시·도감 기록은 main이 주인
   ipcRenderer.send('config-changed');
   render();
 }
