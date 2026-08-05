@@ -9,7 +9,7 @@
 #
 # 타입: feat(기능) fix(버그) refactor(구조) perf(성능)
 #       style(포맷·UI) docs(문서) test(테스트) chore(빌드·CI·설정)
-# 범위: pet panel bubble tray usage config ci
+# 범위: pet panel bubble dex tray usage config ci
 #
 # fix와 refactor가 헷갈리면 — 이 변경이 없었다면 사용자가 잘못된 것을
 # 봤을지로 가릅니다. 봤다면 fix, 아니면 refactor입니다.
