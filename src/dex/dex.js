@@ -18,7 +18,7 @@ const grid = $('grid');
 const gens = Object.keys(index.byGen).map(Number).sort((a, b) => a - b);
 const cache = new Map(); // 세대별 그리드 HTML — 탭을 오갈 때 다시 만들지 않는다
 
-let state = { seen: {}, caught: {}, activeSlugs: [] };
+let state = { seen: {}, caught: {}, activeSlugs: [], pick: { locked: false, unlockAt: null } };
 let gen = gens[0];
 let query = '';
 let sheetPaths = [];
@@ -124,9 +124,20 @@ function openSheet(slug) {
     .join('');
   // 갈래도 진화도 없는 종은 고를 것이 없으므로 굳이 보여주지 않는다
   sel.hidden = sheetPaths.length === 1 && sheetPaths[0].length === 1;
-  $('sheet-status').textContent = '';
-  $('add').disabled = false;
+  applyLock();
   $('veil').hidden = false;
+}
+
+// 한 주에 한 마리만 키운다. 이미 골랐다면 왜 못 고르는지와 언제 풀리는지를 함께 알린다.
+const fmtDate = (ms) => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()}`; };
+
+function applyLock(showReason = true) {
+  const pick = state.pick || {};
+  $('add').disabled = !!pick.locked;
+  if (!showReason) return; // 방금 띄운 결과 문구를 덮지 않는다
+  $('sheet-status').textContent = pick.locked
+    ? `이번 주에 키울 포켓몬은 이미 골랐어요${pick.unlockAt ? ` · ${fmtDate(pick.unlockAt)} 리셋 후에 바꿀 수 있어요` : ''}`
+    : '';
 }
 
 function closeSheet() {
@@ -164,6 +175,11 @@ $('add').onclick = async () => {
   }
 };
 
+// 갈아탄 직후에도, 주간 리셋으로 잠금이 풀린 뒤에도 열려 있던 시트가 맞게 보여야 한다
+function refreshSheet() {
+  if (!$('veil').hidden) applyLock(false);
+}
+
 // --- 상태 ---
 function setState(s) {
   if (!s) return;
@@ -171,6 +187,7 @@ function setState(s) {
   document.documentElement.style.setProperty('--accent', s.source === 'codex' ? '#10a37f' : '#d97757');
   renderCounts();
   applyState();
+  refreshSheet();
 }
 
 ipcRenderer.on('dex-changed', (_, s) => setState(s));

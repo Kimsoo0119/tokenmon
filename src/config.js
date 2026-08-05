@@ -10,6 +10,9 @@ const DEFAULTS = {
   usageCache: {},
   petPosition: null,
   activeMonster: null,
+  // 활성 몬스터를 고른 시점의 주간 리셋 시각. 이 시각이 지나 새 주가 시작되기
+  // 전까지는 다른 계통으로 바꿀 수 없다 (한 주에 한 마리를 끝까지 키운다).
+  activePickedResetAt: null,
   monsters: {},
   // 도감 기록. 등록해서 알게 된 종(seen)과 실제로 그 단계까지 키워본
   // 종(caught)을 슬러그 → 시각으로 담는다. 몬스터를 지워도 남는다.
@@ -24,7 +27,7 @@ const CUSTOM_PREFIX = 'custom-';
 
 // 렌더러는 창을 열 때 읽어둔 설정을 통째로 덮어쓰기 때문에, 그 사이 메인이
 // 갱신한 값이 사라진다. 메인만 쓰는 필드를 적어두고 저장 직전에 되돌린다.
-const MAIN_OWNED_KEYS = ['petPosition', 'usageCache', 'dex'];
+const MAIN_OWNED_KEYS = ['petPosition', 'usageCache', 'dex', 'activePickedResetAt'];
 
 const SLUG = /^[a-z0-9-]+$/;
 

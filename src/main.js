@@ -40,6 +40,23 @@ function pushState() {
   if (petWin && !petWin.isDestroyed()) petWin.webContents.send('state', currentState());
 }
 
+const weeklyResetAt = () => (lastUsage && lastUsage.weekly ? lastUsage.weekly.resetsAt ?? null : null);
+
+// 한 주에 한 마리를 끝까지 키우자는 규칙. 고른 시점의 주간 리셋 시각을 적어두고,
+// 그 시각이 지나 새 주가 시작되기 전에는 다른 계통으로 바꿀 수 없게 막는다.
+// 소진율을 아직 모르면 막지 않는다 — 조회에 실패했다고 갇히면 곤란하다.
+function pickLock() {
+  const resetAt = weeklyResetAt();
+  const locked = !!cfg.activeMonster && resetAt != null && cfg.activePickedResetAt === resetAt;
+  return { locked, unlockAt: locked ? resetAt : null };
+}
+
+// 도감 인정 시작선은 syncDex가 id가 달라진 것을 보고 알아서 다시 잡는다
+function setActiveMonster(id) {
+  cfg.activeMonster = id;
+  cfg.activePickedResetAt = weeklyResetAt();
+}
+
 // 활성 몬스터의 도감 인정 시작선. 몬스터를 갈아타면 다시 잡는다. 설정에 두지 않는
 // 이유는 앱을 껐다 켜면 지금 단계를 물려받은 것으로 보는 편이 안전해서다 —
 // 이미 남은 기록은 그대로고, 새로 공짜로 얻는 것만 막힌다.
@@ -127,6 +144,7 @@ function panelData() {
       nextThreshold: m.thresholds[idx] ?? null,
       gif: m.stages[idx].gif, // 패널 링 한가운데에 현재 단계 스프라이트를 띄움
     } : null,
+    pick: pickLock(),
   };
 }
 
@@ -231,6 +249,7 @@ function dexState() {
     caught: cfg.dex.caught,
     activeSlugs: active && !isCustomId(cfg.activeMonster) ? stageSlugs(active).filter(Boolean) : [],
     source: cfg.source,
+    pick: pickLock(),
   };
 }
 
@@ -324,12 +343,29 @@ app.whenReady().then(() => {
 
 ipcMain.on('get-config-path', (e) => { e.returnValue = configFile(); });
 ipcMain.handle('dex-state', () => dexState());
+// 활성 몬스터 변경도 메인이 판정한다 — 렌더러가 직접 설정을 고치면 잠금을 우회한다
+ipcMain.handle('set-active-monster', (_, id) => {
+  // 방금 렌더러가 추가한 몬스터일 수 있다 — config-changed보다 먼저 닿았으면 다시 읽는다
+  if (!cfg.monsters[id]) cfg = loadConfig(configFile());
+  if (!cfg.monsters[id]) return { ok: false, error: '없는 몬스터예요' };
+  if (id !== cfg.activeMonster && pickLock().locked) {
+    return { ok: false, error: '이번 주에 키울 포켓몬은 이미 골랐어요' };
+  }
+  setActiveMonster(id);
+  syncDex();
+  saveConfig(configFile(), cfg);
+  pushState();
+  pushPanel();
+  pushDex();
+  return { ok: true };
+});
 ipcMain.on('open-dex', openDex);
 ipcMain.on('dex-close', () => { if (dexWin && !dexWin.isDestroyed()) dexWin.hide(); });
 // 패널과 도감이 각자 등록 코드를 들면 언젠가 서로 어긋나므로 메인에 하나만 둔다.
 // 스프라이트를 모두 받은 뒤에야 설정을 건드려서, 도중에 실패해도 설정은 멀쩡하다.
 ipcMain.handle('add-monster', async (_, chainPath) => {
   try {
+    if (pickLock().locked) throw new Error('이번 주에 키울 포켓몬은 이미 골랐어요');
     if (!Array.isArray(chainPath) || !chainPath.length) throw new Error('진화 경로가 비어 있어요');
     // 도감에 있는 슬러그만 통과시킨다 — 경로를 벗어나는 이름이 파일 이름이 되는 걸 막는다
     for (const slug of chainPath) {
@@ -345,8 +381,8 @@ ipcMain.handle('add-monster', async (_, chainPath) => {
       && prev.thresholds.length === built.thresholds.length;
     cfg.monsters[id] = keepThresholds ? { ...built, thresholds: prev.thresholds } : built;
     // 고른 포켓몬으로 바로 갈아탄다 — 추가했는데 화면이 그대로면 고른 보람이 없다.
-    // 이전 몬스터는 목록에 남아 있어 설정에서 언제든 되돌릴 수 있다.
-    cfg.activeMonster = id;
+    // 이전 몬스터는 목록에 남아 있어 다음 주에 다시 고를 수 있다.
+    setActiveMonster(id);
     syncDex();
     saveConfig(configFile(), cfg);
     pushState();

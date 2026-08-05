@@ -28,6 +28,27 @@ function save() {
   render();
 }
 
+// 한 주에 한 마리만 키운다. 잠금 판정은 메인이 하고 여기서는 받아 쓴다.
+let pick = { locked: false, unlockAt: null };
+const fmtDate = (ms) => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()}`; };
+
+// panel.js도 같은 이벤트를 듣는다 — 창 하나에 두 스크립트가 올라가 있어 각자 필요한 것만 본다
+ipcRenderer.on('panel-data', (_, d) => {
+  if (!d || !d.pick) return;
+  const was = pick.locked;
+  pick = d.pick;
+  if (was !== pick.locked) render();
+});
+
+function applyLock() {
+  const why = pick.locked
+    ? `이번 주에 키울 포켓몬은 이미 골랐어요${pick.unlockAt ? ` · ${fmtDate(pick.unlockAt)} 리셋 후에 바꿀 수 있어요` : ''}`
+    : '';
+  $('pick-lock').textContent = why;
+  for (const el of [$('poke-lookup'), $('poke-add'), $('custom-add')]) el.disabled = pick.locked;
+  for (const r of list.querySelectorAll('input[name=active]')) r.disabled = pick.locked;
+}
+
 function render() {
   if (cfg.source !== 'codex') cfg.source = 'claude';
   document.querySelector(`input[name=source][value=${cfg.source}]`).checked = true;
@@ -41,7 +62,13 @@ function render() {
       <button class="thr-save">저장</button> <button class="del">삭제</button>`;
     const radio = li.querySelector('input[name=active]');
     radio.checked = id === cfg.activeMonster;
-    radio.onchange = () => { cfg.activeMonster = id; save(); };
+    // 활성 몬스터 변경은 메인이 판정한다. 거절당하면 라디오를 원래대로 되돌린다.
+    radio.onchange = async () => {
+      const res = await ipcRenderer.invoke('set-active-monster', id);
+      if (!res.ok) alert(res.error);
+      cfg = loadConfig(CONFIG_FILE);
+      render();
+    };
     li.querySelector('.thr-save').onclick = () => {
       const t = li.querySelector('.thr').value.split(',').map(Number);
       if (t.length !== m.stages.length - 1 || !validThresholds(t)) {
@@ -57,6 +84,7 @@ function render() {
     };
     list.appendChild(li);
   }
+  applyLock();
 }
 
 document.querySelectorAll('input[name=source]').forEach((r) => {
@@ -100,7 +128,7 @@ $('poke-add').onclick = async () => {
 };
 
 // --- 커스텀 몬스터 ---
-$('custom-add').onclick = () => {
+$('custom-add').onclick = async () => {
   const name = $('custom-name').value.trim();
   const files = [...$('custom-files').files].sort((a, b) => a.name.localeCompare(b.name));
   if (!name || files.length < 1) return alert('이름과 GIF 파일을 지정해줘요');
@@ -113,8 +141,12 @@ $('custom-add').onclick = () => {
   });
   const id = 'custom-' + name;
   cfg.monsters[id] = { displayName: name, stages, thresholds: evenThresholds(stages.length) };
-  if (!cfg.activeMonster) cfg.activeMonster = id;
   save();
+  // 포켓몬을 추가할 때와 마찬가지로 방금 만든 몬스터로 갈아탄다
+  const res = await ipcRenderer.invoke('set-active-monster', id);
+  if (!res.ok) alert(res.error);
+  cfg = loadConfig(CONFIG_FILE);
+  render();
 };
 
 render();
