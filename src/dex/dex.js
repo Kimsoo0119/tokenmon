@@ -36,13 +36,17 @@ function cellHtml(slug) {
     + '</button>';
 }
 
+// 도달해본 종만 이름을 드러낸다. 격자든 상세든 이 규칙은 같아야 한다 —
+// 한쪽에서만 가리면 눌러보는 것만으로 알아낼 수 있어 가리는 의미가 없다.
+const caught = (slug) => cellState(state, slug) === 'caught';
+const shownName = (slug) => (caught(slug) ? index.bySlug[slug].ko : '???');
+
 function applyState() {
   for (const cell of grid.children) {
     const slug = cell.dataset.slug;
-    const st = cellState(state, slug);
     const active = state.activeSlugs.includes(slug);
-    cell.className = `cell ${st}${active ? ' active' : ''}`;
-    cell.querySelector('.nm').textContent = st === 'caught' ? index.bySlug[slug].ko : '???';
+    cell.className = `cell ${cellState(state, slug)}${active ? ' active' : ''}`;
+    cell.querySelector('.nm').textContent = shownName(slug);
   }
 }
 
@@ -102,17 +106,21 @@ function openSheet(slug) {
   const start = isStarter(index, slug);
   sheetPaths = start ? chainPathsFor(index, slug) : pathsThrough(index, slug);
 
+  const known = caught(slug);
   $('sheet-sprite').src = ANIM(slug);
-  $('sheet-name').textContent = e.ko;
+  $('sheet-sprite').classList.toggle('unknown', !known);
+  $('sheet-name').textContent = shownName(slug);
+  // 도감 번호와 세대는 격자에서도 보이므로 그대로 두고, 전설·환상 여부처럼
+  // 키워봐야 알 수 있는 것은 도달 전까지 밝히지 않는다
   $('sheet-meta').textContent = `#${String(e.no).padStart(3, '0')} · ${e.gen}세대`
-    + (e.legendary ? ' · 전설' : '') + (e.mythical ? ' · 환상' : '');
+    + (known && e.legendary ? ' · 전설' : '') + (known && e.mythical ? ' · 환상' : '');
   $('sheet-role').innerHTML = start
     ? '<b>여기서부터</b> 키우기 시작할 수 있어요.'
-    : `진화로만 만날 수 있어요. 시작은 <b>${esc(index.bySlug[chainRoot(index, slug)].ko)}</b>예요.`;
+    : `진화로만 만날 수 있어요. 시작은 <b>${esc(shownName(chainRoot(index, slug)))}</b>예요.`;
 
   const sel = $('sheet-paths');
   sel.innerHTML = sheetPaths
-    .map((p, i) => `<option value="${i}">${esc(p.map((s) => index.bySlug[s].ko).join(' → '))}</option>`)
+    .map((p, i) => `<option value="${i}">${esc(p.map(shownName).join(' → '))}</option>`)
     .join('');
   // 갈래도 진화도 없는 종은 고를 것이 없으므로 굳이 보여주지 않는다
   sel.hidden = sheetPaths.length === 1 && sheetPaths[0].length === 1;
