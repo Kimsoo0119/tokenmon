@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { buildIndex } = require('../src/dex');
 const {
-  monsterIdFor, buildMonster, stageSlugs, seenSlugsFor, reachedSlugs, mergeStamps,
+  monsterIdFor, buildMonster, stageSlugs, seenSlugsFor, nextFloor, reachedSlugs, mergeStamps,
 } = require('../src/monsters');
 
 const idx = buildIndex({
@@ -67,14 +67,65 @@ const pichuLine = {
   thresholds: [33, 67],
 };
 
-test('reachedSlugs: 첫 단계만 도달', () =>
-  assert.deepEqual(reachedSlugs(pichuLine, 10), ['pichu']));
+test('nextFloor: 0단계에서 시작하면 물려받은 것이 없다', () =>
+  assert.equal(nextFloor(pichuLine, 10, null), -1));
+test('nextFloor: 중간 단계에서 갈아타면 그 단계까지는 물려받은 것', () =>
+  assert.equal(nextFloor(pichuLine, 50, null), 1));
+test('nextFloor: 한 번 잡은 시작선은 올라가도 그대로', () =>
+  assert.equal(nextFloor(pichuLine, 80, 1), 1));
+test('nextFloor: 주간 리셋으로 내려오면 시작선도 내려간다', () =>
+  assert.equal(nextFloor(pichuLine, 10, 1), -1));
+
+test('reachedSlugs: 0단계부터 키웠으면 첫 모습부터', () =>
+  assert.deepEqual(reachedSlugs(pichuLine, 10, -1), ['pichu']));
 // 5분 만에 10%에서 80%로 뛰어도 건너뛴 단계가 도감에 구멍으로 남지 않아야 한다
 test('reachedSlugs: 건너뛴 중간 단계도 함께 남긴다', () =>
-  assert.deepEqual(reachedSlugs(pichuLine, 80), ['pichu', 'pikachu', 'raichu']));
+  assert.deepEqual(reachedSlugs(pichuLine, 80, -1), ['pichu', 'pikachu', 'raichu']));
+test('reachedSlugs: 물려받은 단계는 인정하지 않는다', () =>
+  assert.deepEqual(reachedSlugs(pichuLine, 50, 1), []));
+test('reachedSlugs: 시작선 위로 올라간 것만', () =>
+  assert.deepEqual(reachedSlugs(pichuLine, 80, 1), ['raichu']));
 test('reachedSlugs: 소진율을 모르면 빈 결과', () =>
-  assert.deepEqual(reachedSlugs(pichuLine, null), []));
-test('reachedSlugs: 몬스터가 없으면 빈 결과', () => assert.deepEqual(reachedSlugs(null, 50), []));
+  assert.deepEqual(reachedSlugs(pichuLine, null, -1), []));
+test('reachedSlugs: 몬스터가 없으면 빈 결과', () => assert.deepEqual(reachedSlugs(null, 50, -1), []));
+
+// 소진율은 계정 전체 값이라, 새 몬스터를 고르면 지금 레벨을 그대로 물려받아
+// 손도 대지 않은 진화형까지 도감에 들어가던 문제
+test('미뇽으로 키우다 파이리를 추가해도 파이리 계통은 늘지 않는다', () => {
+  const dratini = {
+    stages: [{ slug: 'dratini' }, { slug: 'dragonair' }, { slug: 'dragonite' }],
+    thresholds: [33, 67],
+  };
+  const charmander = {
+    stages: [{ slug: 'charmander' }, { slug: 'charmeleon' }, { slug: 'charizard' }],
+    thresholds: [33, 67],
+  };
+  const caught = {};
+  // 0%에서 미뇽을 등록해 50%까지 키운다 → 미뇽, 신뇽
+  let floor = nextFloor(dratini, 0, null);
+  mergeStamps(caught, reachedSlugs(dratini, 0, floor), 1);
+  floor = nextFloor(dratini, 50, floor);
+  mergeStamps(caught, reachedSlugs(dratini, 50, floor), 2);
+  assert.deepEqual(Object.keys(caught), ['dratini', 'dragonair']);
+
+  // 50% 그대로에서 파이리로 갈아탄다 → 아무것도 늘지 않아야 한다
+  let cFloor = nextFloor(charmander, 50, null);
+  mergeStamps(caught, reachedSlugs(charmander, 50, cFloor), 3);
+  assert.deepEqual(Object.keys(caught), ['dratini', 'dragonair']);
+
+  // 파이리를 데리고 67%를 넘기면 그때 올라간 단계만 인정한다
+  cFloor = nextFloor(charmander, 80, cFloor);
+  mergeStamps(caught, reachedSlugs(charmander, 80, cFloor), 4);
+  assert.deepEqual(Object.keys(caught), ['dratini', 'dragonair', 'charizard']);
+
+  // 주간 리셋으로 0%까지 내려오면 시작선이 풀려 아래 단계부터 다시 쌓인다
+  cFloor = nextFloor(charmander, 0, cFloor);
+  mergeStamps(caught, reachedSlugs(charmander, 0, cFloor), 5);
+  cFloor = nextFloor(charmander, 50, cFloor);
+  mergeStamps(caught, reachedSlugs(charmander, 50, cFloor), 6);
+  assert.deepEqual(Object.keys(caught).sort(),
+    ['charizard', 'charmander', 'charmeleon', 'dragonair', 'dratini']);
+});
 
 test('mergeStamps: 처음 본 종만 찍고 변경 여부를 알려준다', () => {
   const bag = { pichu: 100 };

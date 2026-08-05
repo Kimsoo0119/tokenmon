@@ -5,7 +5,7 @@ const { loadConfig, saveConfig, cachedUsage, isCacheFresh, isCustomId } = requir
 const { stageIndex } = require('./evolution');
 const { buildIndex, koName } = require('./dex');
 const {
-  monsterIdFor, buildMonster, stageSlugs, seenSlugsFor, reachedSlugs, mergeStamps,
+  monsterIdFor, buildMonster, stageSlugs, seenSlugsFor, nextFloor, reachedSlugs, mergeStamps,
 } = require('./monsters');
 const { downloadGif } = require('./pokeapi');
 const { fetchClaudeUsage } = require('./usage/claude');
@@ -40,15 +40,24 @@ function pushState() {
   if (petWin && !petWin.isDestroyed()) petWin.webContents.send('state', currentState());
 }
 
+// 활성 몬스터의 도감 인정 시작선. 몬스터를 갈아타면 다시 잡는다. 설정에 두지 않는
+// 이유는 앱을 껐다 켜면 지금 단계를 물려받은 것으로 보는 편이 안전해서다 —
+// 이미 남은 기록은 그대로고, 새로 공짜로 얻는 것만 막힌다.
+let dexFloorId = null;
+let dexFloor = null;
+
 // 도감 기록은 메인만 쓴다. 렌더러가 각자 남기면 설정을 저장할 때마다 서로의
 // 기록을 덮으므로, 렌더러는 읽기만 하고 여기서만 갱신한다.
 // 등록한 몬스터의 계통을 합집합으로 쌓기 때문에 몬스터를 지워도 기록은 남는다.
 function syncDex() {
   const now = Date.now();
   let changed = mergeStamps(cfg.dex.seen, seenSlugsFor(dexIndex, cfg.monsters), now);
-  const active = cfg.monsters[cfg.activeMonster];
-  if (active && !isCustomId(cfg.activeMonster)) {
-    if (mergeStamps(cfg.dex.caught, reachedSlugs(active, lastPercent), now)) changed = true;
+  const id = cfg.activeMonster;
+  const active = cfg.monsters[id];
+  if (active && !isCustomId(id) && lastPercent != null) {
+    if (dexFloorId !== id) { dexFloorId = id; dexFloor = null; }
+    dexFloor = nextFloor(active, lastPercent, dexFloor);
+    if (mergeStamps(cfg.dex.caught, reachedSlugs(active, lastPercent, dexFloor), now)) changed = true;
   }
   return changed;
 }

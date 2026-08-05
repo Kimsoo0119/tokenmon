@@ -38,12 +38,26 @@ function seenSlugsFor(index, monsters) {
   return [...out];
 }
 
-// 지금 소진율로 도달한 단계들. 0단계부터 지금 단계까지 함께 돌려준다 — 폴링이
-// 5분 간격이라 10%에서 80%로 뛴 사이의 중간 단계를 못 보고 지나칠 수 있는데,
-// 그러면 라이츄는 도달했는데 피카츄는 못 만난 도감이 된다.
-function reachedSlugs(monster, percent) {
+// 소진율은 계정 전체의 값이라 몬스터마다 키운 정도가 따로 없다. 그래서 새 몬스터를
+// 고르면 지금 소진율을 그대로 물려받아, 손도 대지 않은 진화형까지 도달한 것이 된다.
+// 활성으로 만든 시점의 단계를 시작선으로 잡아두고 그보다 위로 올라간 것만 인정한다.
+//
+// 시작선이 -1이면 물려받은 것이 없다는 뜻이다 — 0단계에서 시작했으니 그 모습부터
+// 이 몬스터로 얻은 것이다.
+function nextFloor(monster, percent, prevFloor) {
+  const idx = stageIndex((monster && monster.thresholds) || [], percent);
+  // 처음 활성이 되었거나, 주간 리셋으로 더 낮은 단계까지 내려왔으면 시작선을 다시 잡는다
+  if (prevFloor == null || idx < prevFloor) return idx === 0 ? -1 : idx;
+  return prevFloor;
+}
+
+// 시작선 위로 올라간 단계들. 중간 단계를 함께 돌려주는 이유는 폴링이 5분 간격이라
+// 10%에서 80%로 뛴 사이를 못 보고 지나칠 수 있기 때문이다 — 그러면 라이츄는
+// 도달했는데 피카츄는 못 만난 도감이 된다.
+function reachedSlugs(monster, percent, floor = -1) {
   if (!monster || percent == null) return [];
-  return stageSlugs(monster).slice(0, stageIndex(monster.thresholds || [], percent) + 1);
+  const idx = stageIndex(monster.thresholds || [], percent);
+  return stageSlugs(monster).slice(floor + 1, idx + 1);
 }
 
 // 처음 본 종만 시각을 찍는다. 이미 있는 기록은 덮지 않는다 — 언제 처음
@@ -58,4 +72,6 @@ function mergeStamps(target, slugs, now) {
   return changed;
 }
 
-module.exports = { monsterIdFor, buildMonster, stageSlugs, seenSlugsFor, reachedSlugs, mergeStamps };
+module.exports = {
+  monsterIdFor, buildMonster, stageSlugs, seenSlugsFor, nextFloor, reachedSlugs, mergeStamps,
+};
