@@ -60,6 +60,18 @@ function reachedSlugs(monster, percent, floor = -1) {
   return stageSlugs(monster).slice(floor + 1, idx + 1);
 }
 
+// 한 주에 한 마리. 고를 때 적어둔 리셋 시각이 아직 오지 않았으면 잠근다.
+//
+// 지금 조회값과 같은지로 보면 안 된다 — usage API가 같은 리셋을 가리키면서도
+// 매번 1초 안팎으로 다른 값을 주기 때문에, 폴링이 한 번만 돌아도 잠금이 저절로
+// 풀린다. 시각이 지났는지로 봐야 흔들리지 않는다.
+function pickLock(cfg, now = Date.now()) {
+  const until = cfg && cfg.activePickedResetAt;
+  const locked = !!(cfg && cfg.dexEnabled) && !(cfg && cfg.dexFreeMode)
+    && !!(cfg && cfg.activeMonster) && typeof until === 'number' && now < until;
+  return { locked, unlockAt: locked ? until : null };
+}
+
 // 처음 본 종만 시각을 찍는다. 이미 있는 기록은 덮지 않는다 — 언제 처음
 // 만났는지가 남아야 도감다워진다. 무언가 새로 찍었으면 true.
 function mergeStamps(target, slugs, now) {
@@ -73,5 +85,6 @@ function mergeStamps(target, slugs, now) {
 }
 
 module.exports = {
-  monsterIdFor, buildMonster, stageSlugs, seenSlugsFor, nextFloor, reachedSlugs, mergeStamps,
+  monsterIdFor, buildMonster, stageSlugs, seenSlugsFor,
+  nextFloor, reachedSlugs, pickLock, mergeStamps,
 };

@@ -5,7 +5,8 @@ const { loadConfig, saveConfig, cachedUsage, isCacheFresh, isCustomId } = requir
 const { stageIndex } = require('./evolution');
 const { buildIndex, koName } = require('./dex');
 const {
-  monsterIdFor, buildMonster, stageSlugs, seenSlugsFor, nextFloor, reachedSlugs, mergeStamps,
+  monsterIdFor, buildMonster, stageSlugs, seenSlugsFor,
+  nextFloor, reachedSlugs, pickLock: lockOf, mergeStamps,
 } = require('./monsters');
 const { downloadGif } = require('./pokeapi');
 const { fetchClaudeUsage } = require('./usage/claude');
@@ -45,13 +46,7 @@ const weeklyResetAt = () => (lastUsage && lastUsage.weekly ? lastUsage.weekly.re
 // 한 주에 한 마리를 끝까지 키우자는 규칙. 고른 시점의 주간 리셋 시각을 적어두고,
 // 그 시각이 지나 새 주가 시작되기 전에는 다른 계통으로 바꿀 수 없게 막는다.
 // 소진율을 아직 모르면 막지 않는다 — 조회에 실패했다고 갇히면 곤란하다.
-// 도감을 쓰지 않거나 규칙 없이 둘러보는 중이면 잠그지 않는다
-function pickLock() {
-  const resetAt = weeklyResetAt();
-  const locked = !!cfg.dexEnabled && !cfg.dexFreeMode
-    && !!cfg.activeMonster && resetAt != null && cfg.activePickedResetAt === resetAt;
-  return { locked, unlockAt: locked ? resetAt : null };
-}
+const pickLock = () => lockOf(cfg);
 
 // 도감 인정 시작선은 syncDex가 id가 달라진 것을 보고 알아서 다시 잡는다
 function setActiveMonster(id) {

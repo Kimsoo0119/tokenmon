@@ -53,34 +53,47 @@ function applyLock() {
   $('dex-enabled').checked = dexOpt.enabled;
   $('dex-free').checked = dexOpt.freeMode;
   $('dex-free').disabled = !dexOpt.enabled; // 도감을 켜야 의미가 있는 설정이다
-  const why = pick.locked
+
+  // 도감을 쓰는 동안에는 고르는 창구를 도감 하나로 모은다. 여기서도 고를 수
+  // 있으면 도감을 거치지 않고 규칙을 지나가게 된다.
+  $('dex-pick-sec').hidden = !dexOpt.enabled;
+  $('poke-sec').hidden = dexOpt.enabled;
+  $('custom-sec').hidden = dexOpt.enabled;
+
+  $('pick-lock').textContent = pick.locked
     ? `이번 주에 키울 포켓몬은 이미 골랐어요${pick.unlockAt ? ` · ${fmtDate(pick.unlockAt)} 리셋 후에 바꿀 수 있어요` : ''}`
     : '';
-  $('pick-lock').textContent = why;
   for (const el of [$('poke-lookup'), $('poke-add'), $('custom-add')]) el.disabled = pick.locked;
-  for (const r of list.querySelectorAll('input[name=active]')) r.disabled = pick.locked;
 }
+$('open-dex-btn').onclick = () => ipcRenderer.send('open-dex');
 
 function render() {
   if (cfg.source !== 'codex') cfg.source = 'claude';
   document.querySelector(`input[name=source][value=${cfg.source}]`).checked = true;
   list.innerHTML = '';
   for (const [id, m] of Object.entries(cfg.monsters)) {
+    const active = id === cfg.activeMonster;
     const li = document.createElement('li');
+    // 도감을 쓰는 동안에는 여기서 고를 수 없다 — 고르는 창구는 도감 하나뿐이다.
+    // 임계값 편집과 삭제는 고르는 것과 다른 일이라 그대로 둔다.
     li.innerHTML = `
-      <label><input type="radio" name="active"> <b>${esc(m.displayName)}</b></label>
+      ${dexOpt.enabled
+    ? `<b>${esc(m.displayName)}</b>${active ? ' <span class="hint">키우는 중</span>' : ''}`
+    : `<label><input type="radio" name="active"> <b>${esc(m.displayName)}</b></label>`}
       ${m.stages.map((s) => esc(s.name)).join(' → ')}
       임계값: <input class="thr" value="${esc(m.thresholds.join(','))}">
       <button class="thr-save">저장</button> <button class="del">삭제</button>`;
     const radio = li.querySelector('input[name=active]');
-    radio.checked = id === cfg.activeMonster;
-    // 활성 몬스터 변경은 메인이 판정한다. 거절당하면 라디오를 원래대로 되돌린다.
-    radio.onchange = async () => {
-      const res = await ipcRenderer.invoke('set-active-monster', id);
-      if (!res.ok) alert(res.error);
-      cfg = loadConfig(CONFIG_FILE);
-      render();
-    };
+    if (radio) {
+      radio.checked = active;
+      // 활성 몬스터 변경은 메인이 판정한다. 거절당하면 라디오를 원래대로 되돌린다.
+      radio.onchange = async () => {
+        const res = await ipcRenderer.invoke('set-active-monster', id);
+        if (!res.ok) alert(res.error);
+        cfg = loadConfig(CONFIG_FILE);
+        render();
+      };
+    }
     li.querySelector('.thr-save').onclick = () => {
       const t = li.querySelector('.thr').value.split(',').map(Number);
       if (t.length !== m.stages.length - 1 || !validThresholds(t)) {

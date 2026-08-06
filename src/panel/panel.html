@@ -166,7 +166,12 @@
       <div class="hint">도감을 켜면 한 주에 한 마리만 고를 수 있습니다.
         규칙 없이 둘러보기를 켜면 전 종이 보이고 아무 때나 바꿀 수 있어요 (기록은 그대로 쌓입니다)</div>
     </section>
-    <section>
+    <section id="dex-pick-sec" hidden>
+      <h2>포켓몬 선택</h2>
+      <button id="open-dex-btn">도감에서 고르기</button>
+      <div class="hint">도감을 쓰는 동안에는 포켓몬을 도감에서 고릅니다</div>
+    </section>
+    <section id="poke-sec">
       <h2>포켓몬 추가</h2>
       <input id="poke-name" type="text" placeholder="한글 이름 (예: 피카츄)">
       <button id="poke-lookup">불러오기</button>
@@ -176,7 +181,7 @@
         <button id="poke-add" hidden>추가</button>
       </div>
     </section>
-    <section>
+    <section id="custom-sec">
       <h2>커스텀 몬스터 (GIF 직접 지정)</h2>
       <input id="custom-name" type="text" placeholder="이름">
       <input id="custom-files" type="file" accept=".gif" multiple>

@@ -2,7 +2,8 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { buildIndex } = require('../src/dex');
 const {
-  monsterIdFor, buildMonster, stageSlugs, seenSlugsFor, nextFloor, reachedSlugs, mergeStamps,
+  monsterIdFor, buildMonster, stageSlugs, seenSlugsFor,
+  nextFloor, reachedSlugs, pickLock, mergeStamps,
 } = require('../src/monsters');
 
 const idx = buildIndex({
@@ -126,6 +127,30 @@ test('미뇽으로 키우다 파이리를 추가해도 파이리 계통은 늘�
   assert.deepEqual(Object.keys(caught).sort(),
     ['charizard', 'charmander', 'charmeleon', 'dragonair', 'dratini']);
 });
+
+const picked = {
+  dexEnabled: true, dexFreeMode: false,
+  activeMonster: 'pichu-pikachu-raichu', activePickedResetAt: 2000,
+};
+
+test('pickLock: 고른 주가 끝나기 전이면 잠긴다', () =>
+  assert.deepEqual(pickLock(picked, 1500), { locked: true, unlockAt: 2000 }));
+test('pickLock: 리셋 시각이 지나면 풀린다', () =>
+  assert.equal(pickLock(picked, 2000).locked, false));
+// usage API가 같은 리셋을 가리키면서도 매번 1초 안팎으로 다른 값을 준다.
+// 지금 조회값과 같은지로 보면 폴링이 한 번만 돌아도 잠금이 저절로 풀렸다.
+test('pickLock: 리셋 시각이 1초쯤 흔들려도 잠금이 유지된다', () => {
+  assert.equal(pickLock({ ...picked, activePickedResetAt: 1786193999071 }, 1786000000000).locked, true);
+  assert.equal(pickLock({ ...picked, activePickedResetAt: 1786194000292 }, 1786000000000).locked, true);
+});
+test('pickLock: 도감을 쓰지 않으면 잠그지 않는다', () =>
+  assert.equal(pickLock({ ...picked, dexEnabled: false }, 1500).locked, false));
+test('pickLock: 규칙 없이 둘러보는 중이면 잠그지 않는다', () =>
+  assert.equal(pickLock({ ...picked, dexFreeMode: true }, 1500).locked, false));
+test('pickLock: 아직 한 마리도 없으면 골라야 한다', () =>
+  assert.equal(pickLock({ ...picked, activeMonster: null }, 1500).locked, false));
+test('pickLock: 리셋 시각을 모르면 막지 않는다', () =>
+  assert.equal(pickLock({ ...picked, activePickedResetAt: null }, 1500).locked, false));
 
 test('mergeStamps: 처음 본 종만 찍고 변경 여부를 알려준다', () => {
   const bag = { pichu: 100 };
