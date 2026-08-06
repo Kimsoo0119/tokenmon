@@ -19,7 +19,9 @@
   body.scroll { overflow-y: auto; scrollbar-width: none; }
   body.scroll::-webkit-scrollbar { display: none; }
   body { font: 13px/1.45 var(--sans);
-    color: var(--text); -webkit-font-smoothing: antialiased; }
+    color: var(--text); -webkit-font-smoothing: antialiased;
+    /* 한국어는 기본이 글자 단위 줄바꿈이라 어절이 잘린다 */
+    word-break: keep-all; overflow-wrap: break-word; }
 
   #card { background: linear-gradient(180deg, rgba(38,38,42,.97), var(--bg) 120px);
     border: 1px solid var(--card-line); border-radius: 14px; padding: 16px 18px 14px;

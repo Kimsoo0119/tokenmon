@@ -15,7 +15,9 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
   body { font: 13px/1.45 var(--sans); color: var(--text);
-    -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; }
+    -webkit-font-smoothing: antialiased; display: flex; flex-direction: column;
+    /* 한국어는 기본이 글자 단위 줄바꿈이라 "계통을 등 / 록해두기만"처럼 어절이 잘린다 */
+    word-break: keep-all; overflow-wrap: break-word; }
 
   /* ── 머리말 ── 신호등 버튼 자리를 비워두고, 빈 곳은 창을 끄는 손잡이로 쓴다 ── */
   header { -webkit-app-region: drag; flex: none;
