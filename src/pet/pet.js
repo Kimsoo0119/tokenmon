@@ -3,12 +3,9 @@ const sprite = document.getElementById('sprite');
 const empty = document.getElementById('empty');
 const flash = document.getElementById('flash');
 const glow = document.getElementById('glow');
+const { esc } = require('../esc');
 let state = null;
 let currentGif = null;
-
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
-  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-));
 
 ipcRenderer.on('state', (_, s) => {
   state = s;

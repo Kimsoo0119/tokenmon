@@ -6,11 +6,10 @@ const { evenThresholds, validThresholds } = require('../evolution');
 const { resolveSlug, fetchEvolutionPaths, downloadGif } = require('../pokeapi');
 const namesKo = require('../../assets/names-ko.json');
 
+const { esc } = require('../esc');
+
 const koBySlug = Object.fromEntries(Object.entries(namesKo).map(([k, v]) => [v, k]));
 const ko = (slug) => koBySlug[slug] || slug;
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
-  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-));
 
 const CONFIG_FILE = ipcRenderer.sendSync('get-config-path');
 const CACHE_DIR = path.join(path.dirname(CONFIG_FILE), 'cache');

@@ -12,12 +12,9 @@ let lastPercent = null;
 let lastUsage = null; // { fiveHour: {pct, resetsAt}|null, weekly: {pct, resetsAt} }
 let lastError = false;
 
-const configFile = () => path.join(app.getPath('userData'), 'config.json');
+const { esc } = require('./esc');
 
-// 몬스터 이름은 사용자 입력이므로 말풍선 HTML에 넣기 전 이스케이프
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
-  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-));
+const configFile = () => path.join(app.getPath('userData'), 'config.json');
 
 // ── 진화 이벤트 ──────────────────────────────────────
 // 표시 단계(shownIdx)는 계산값을 그대로 따르지 않는다. 연출이 켜져 있으면 단계 상승을
