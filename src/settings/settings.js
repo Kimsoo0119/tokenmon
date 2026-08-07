@@ -6,11 +6,10 @@ const { evenThresholds, validThresholds } = require('../evolution');
 const { resolveSlug, fetchEvolutionPaths, downloadGif } = require('../pokeapi');
 const namesKo = require('../../assets/names-ko.json');
 
+const { esc } = require('../esc');
+
 const koBySlug = Object.fromEntries(Object.entries(namesKo).map(([k, v]) => [v, k]));
 const ko = (slug) => koBySlug[slug] || slug;
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
-  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-));
 
 const CONFIG_FILE = ipcRenderer.sendSync('get-config-path');
 const CACHE_DIR = path.join(path.dirname(CONFIG_FILE), 'cache');
@@ -20,7 +19,12 @@ const $ = (id) => document.getElementById(id);
 const list = $('monsters');
 
 function save() {
-  cfg.petPosition = loadConfig(CONFIG_FILE).petPosition; // main이 갱신한 위치 보존
+  // 이 창의 cfg는 로드 시점 스냅샷이라, 메인 프로세스가 그 사이 써둔 필드를
+  // 덮어쓰지 않도록 디스크 값으로 되살린 뒤 저장한다
+  const disk = loadConfig(CONFIG_FILE);
+  cfg.petPosition = disk.petPosition;     // 펫 위치 (드래그로 갱신됨)
+  cfg.usageCache = disk.usageCache;       // 소스별 사용량 캐시 (폴링마다 갱신됨)
+  cfg.evolutionBlock = disk.evolutionBlock; // B 키로 막아둔 진화
   saveConfig(CONFIG_FILE, cfg);
   ipcRenderer.send('config-changed');
   render();
@@ -60,6 +64,10 @@ function render() {
 document.querySelectorAll('input[name=source]').forEach((r) => {
   r.onchange = () => { cfg.source = r.value; save(); };
 });
+
+// --- 진화 이벤트 연출 ---
+$('evo-cine').checked = cfg.evolutionCinematic !== false;
+$('evo-cine').onchange = () => { cfg.evolutionCinematic = $('evo-cine').checked; save(); };
 
 // --- 펫 크기 ---
 $('pet-size').value = cfg.petSize || 140;

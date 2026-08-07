@@ -41,6 +41,7 @@ npm start
   - Claude: Keychain의 Claude Code OAuth 토큰으로 usage API 조회
   - Codex: `~/.codex/sessions/` 세션 로그의 rate_limits 스냅샷 (Codex를 써야 갱신됨)
 - 소진율이 임계값(기본 균등분할)을 넘을 때마다 펫이 진화, 주간 리셋되면 1단계로 회귀
+- 진화 조건이 되면 바로 변하지 않고 "어…? ㅇㅇ의 상태가…!" 알림과 함께 펫이 반짝이며 기다립니다. 펫(또는 알림)을 클릭하면 게임처럼 플래시 → "축하합니다!" 연출이 재생됩니다 (설정에서 끄면 짧은 플래시로 즉시 반영)
 - 펫: 드래그로 이동, 클릭하면 공격 모션 + 사용량 말풍선
 - 트레이 → 설정: 포켓몬 한글 이름으로 추가(진화체인 자동 인식), 커스텀 GIF 몬스터, 임계값 편집
 
@@ -75,7 +76,7 @@ npm start
 
 ```bash
 npm run lint  # ESLint
-npm test      # 테스트 31개
+npm test      # 테스트 52개
 ```
 
 구조와 설계 배경은 [docs/design.md](docs/design.md)에 정리해두었습니다.

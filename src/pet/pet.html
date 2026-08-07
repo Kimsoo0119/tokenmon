@@ -33,11 +33,34 @@
     background: radial-gradient(circle, rgba(255,255,255,.95) 15%, rgba(255,255,255,0) 65%); }
   #flash.on { animation: flashAnim 1s ease; }
   @keyframes flashAnim { 0% {opacity:0} 40% {opacity:1} 60% {opacity:1} 100% {opacity:0} }
+
+  /* 진화 대기: 은은한 금빛 글로우 — 클릭하면 연출이 시작된다.
+     스프라이트가 아닌 오버레이의 opacity만 움직인다: 컴포지터 합성만으로 그려져
+     대기가 몇 시간 이어져도 리페인트 비용이 없고, 스프라이트의 공격·점프
+     애니메이션 슬롯도 건드리지 않는다 */
+  #sprite.pending { cursor: pointer; }
+  #glow { position: absolute; inset: 0; opacity: 0; pointer-events: none;
+    background: radial-gradient(circle, rgba(255, 225, 120, .55) 10%, rgba(255, 225, 120, 0) 62%); }
+  #glow.on { animation: glowPulse 2.4s ease-in-out infinite; }
+  @keyframes glowPulse { 0%, 100% { opacity: .15; } 50% { opacity: .9; } }
+
+  /* ── 진화 연출: 변신 구간 실루엣 점멸 → 3연속 플래시 ── */
+  #sprite.evolving { animation: evolvePulse .6s ease-in-out infinite; }
+  @keyframes evolvePulse {
+    0%, 100% { filter: none; transform: scale(1); }
+    50% { filter: brightness(2.4) grayscale(1); transform: scale(1.06); }
+  }
+  #flash.evolve { animation: evolveFlash 2.3s ease; }
+  @keyframes evolveFlash {
+    0% { opacity: 0; } 13% { opacity: 1; } 26% { opacity: .25; }
+    39% { opacity: 1; } 52% { opacity: .35; } 70% { opacity: 1; } 100% { opacity: 0; }
+  }
 </style>
 <div id="wrap">
   <div id="empty" title="클릭해서 몬스터를 추가하세요"><img
     src="https://img.pokemondb.net/sprites/home/normal/egg.png"
     onerror="this.replaceWith('🥚')"></div>
+  <div id="glow"></div>
   <img id="sprite">
   <div id="flash"></div>
 </div>
