@@ -20,7 +20,12 @@ const $ = (id) => document.getElementById(id);
 const list = $('monsters');
 
 function save() {
-  cfg.petPosition = loadConfig(CONFIG_FILE).petPosition; // main이 갱신한 위치 보존
+  // 이 창의 cfg는 로드 시점 스냅샷이라, 메인 프로세스가 그 사이 써둔 필드를
+  // 덮어쓰지 않도록 디스크 값으로 되살린 뒤 저장한다
+  const disk = loadConfig(CONFIG_FILE);
+  cfg.petPosition = disk.petPosition;     // 펫 위치 (드래그로 갱신됨)
+  cfg.usageCache = disk.usageCache;       // 소스별 사용량 캐시 (폴링마다 갱신됨)
+  cfg.evolutionBlock = disk.evolutionBlock; // B 키로 막아둔 진화
   saveConfig(CONFIG_FILE, cfg);
   ipcRenderer.send('config-changed');
   render();

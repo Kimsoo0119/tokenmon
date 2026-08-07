@@ -2,6 +2,7 @@ const { ipcRenderer } = require('electron');
 const sprite = document.getElementById('sprite');
 const empty = document.getElementById('empty');
 const flash = document.getElementById('flash');
+const glow = document.getElementById('glow');
 let state = null;
 let currentGif = null;
 
@@ -18,7 +19,10 @@ ipcRenderer.on('state', (_, s) => {
   const has = !!(s && s.stage);
   empty.style.display = has ? 'none' : 'block';
   sprite.style.display = has ? 'block' : 'none';
-  sprite.classList.toggle('pending', !!(s && s.pendingEvolution)); // 진화 대기 글로우
+  // 진화 대기: 글로우는 별도 오버레이로 — 스프라이트의 애니메이션 슬롯(공격·점프)을
+  // 차지하지 않고, opacity만 움직여 GPU 합성만으로 그린다
+  glow.classList.toggle('on', !!(s && s.pendingEvolution));
+  sprite.classList.toggle('pending', !!(s && s.pendingEvolution)); // 커서 모양용
   if (!has) {
     // 몬스터가 없어지면 트레이 아이콘도 제거 (마지막 스프라이트가 남는 것 방지)
     if (currentGif != null) { currentGif = null; ipcRenderer.send('tray-icon', null); }
@@ -89,6 +93,7 @@ sprite.addEventListener('pointermove', (e) => {
 sprite.addEventListener('pointerup', (e) => {
   try { sprite.releasePointerCapture(e.pointerId); } catch { /* 이미 해제됨 */ }
   if (down && moved) ipcRenderer.send('drag-end');
+  else if (down && sprite.classList.contains('evolving')) { /* 연출 중 클릭은 무시 — 공격 말풍선이 연출 문구를 덮지 않게 */ }
   else if (down && state && state.pendingEvolution) ipcRenderer.send('evolve-go'); // 대기 중 클릭 = 진화 진행
   else if (down) attack();
   down = null;
@@ -102,8 +107,13 @@ empty.addEventListener('click', () => ipcRenderer.send('open-settings'));
 sprite.addEventListener('animationend', () => sprite.classList.remove('attacking', 'notifying'));
 
 // ── 진화 연출 (오케스트레이션은 메인이, 시각 효과는 여기서) ──
-// "모습이 변하기 시작했다!" 구간: 하얗게 점멸하는 펄스
+// 타이밍은 pet.html의 evolveFlash 애니메이션(2.3초)과 맞물려 있다
+const EVOLVE_FLASH_MS = 2300;      // = evolveFlash 길이
+const EVOLVE_SWAP_MS = 900;        // evolveFlash 두 번째 절정(39%)에서 GIF 교체
+
+// "모습이 변하기 시작했다!" 구간: 하얗게 점멸하는 펄스. 이 동안 B를 누르면 취소(이스터에그)
 ipcRenderer.on('evolve-start', () => {
+  glow.classList.remove('on');
   sprite.classList.remove('pending');
   sprite.classList.add('evolving');
 });
@@ -113,11 +123,18 @@ ipcRenderer.on('evolve-commit', (_, { gif }) => {
   sprite.classList.remove('evolving');
   currentGif = gif; // 뒤따라오는 state 푸시가 평범한 플래시를 또 일으키지 않도록 먼저 잡아둔다
   flash.classList.add('evolve');
-  setTimeout(setGif, 900); // evolveFlash 두 번째 절정
+  setTimeout(setGif, EVOLVE_SWAP_MS);
   setTimeout(() => {
     flash.classList.remove('evolve');
     sprite.classList.add('notifying');
-  }, 2300);
+  }, EVOLVE_FLASH_MS);
+});
+
+// 이스터에그: 연출 중 B — 펫 창은 방금 클릭돼 포커스를 갖고 있으므로 창 로컬 입력으로 충분하다
+window.addEventListener('keydown', (e) => {
+  if (e.key.toLowerCase() === 'b' && sprite.classList.contains('evolving')) {
+    ipcRenderer.send('evolve-cancel-request');
+  }
 });
 
 // 외부 알림(Claude Code 훅 등): 점프 + 말풍선. 메시지는 외부 입력이라 이스케이프 필수

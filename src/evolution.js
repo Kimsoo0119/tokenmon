@@ -13,6 +13,15 @@ function validThresholds(t) {
   return t.every((v, i) => v > 0 && v < 100 && (i === 0 || v > t[i - 1]));
 }
 
+// config에서 읽은 진화 차단이 지금 단계 구성에서 유효한가.
+// 사용자가 config.json을 손으로 고치거나 단계를 지웠을 수 있으므로 모양부터 검증한다.
+function validBlock(block, stageCount) {
+  return !!block
+    && Number.isInteger(block.idx) && block.idx >= 0
+    && Number.isInteger(block.blockedTo) && block.blockedTo < stageCount
+    && block.idx < block.blockedTo;
+}
+
 // 진화 차단(이스터에그: 연출 중 B 키)을 감안해 표시할 단계를 정한다.
 // block: { idx, blockedTo } — idx 단계에서 blockedTo로의 진화를 막아둔 상태.
 // 반환: idx(표시 단계), clearBlock(차단을 지울지), evolveTo(다시 진화 연출을 시작할 목표 단계 | null)
@@ -35,4 +44,4 @@ function particle(name, kind) {
   return jong && jong !== 8 ? '으로' : '로';
 }
 
-module.exports = { stageIndex, evenThresholds, validThresholds, resolveStage, particle };
+module.exports = { stageIndex, evenThresholds, validThresholds, validBlock, resolveStage, particle };

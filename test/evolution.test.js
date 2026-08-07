@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { stageIndex, evenThresholds, validThresholds, resolveStage, particle } = require('../src/evolution');
+const { stageIndex, evenThresholds, validThresholds, validBlock, resolveStage, particle } = require('../src/evolution');
 
 test('stageIndex: 임계값 미만이면 0단계', () => assert.equal(stageIndex([33, 66], 10), 0));
 test('stageIndex: 첫 임계값 도달 시 1단계', () => assert.equal(stageIndex([33, 66], 33), 1));
@@ -12,6 +12,15 @@ test('evenThresholds: 4단계 → [25, 50, 75]', () => assert.deepEqual(evenThre
 test('validThresholds: 정상', () => assert.ok(validThresholds([33, 66])));
 test('validThresholds: 내림차순 거부', () => assert.ok(!validThresholds([66, 33])));
 test('validThresholds: 0 이하/100 이상 거부', () => assert.ok(!validThresholds([0, 120])));
+
+test('validBlock: 정상 차단 통과', () => assert.ok(validBlock({ idx: 0, blockedTo: 1 }, 3)));
+test('validBlock: 단계 삭제로 범위 밖이면 거부', () => assert.ok(!validBlock({ idx: 0, blockedTo: 3 }, 3)));
+test('validBlock: 음수/역전/비정수 거부', () => {
+  assert.ok(!validBlock({ idx: -1, blockedTo: 1 }, 3));
+  assert.ok(!validBlock({ idx: 1, blockedTo: 1 }, 3));
+  assert.ok(!validBlock({ idx: 0.5, blockedTo: 1 }, 3));
+  assert.ok(!validBlock(null, 3));
+});
 
 test('resolveStage: 차단 없으면 계산값 그대로', () =>
   assert.deepEqual(resolveStage(2, null), { idx: 2, clearBlock: false, evolveTo: null }));
@@ -28,3 +37,8 @@ test('particle: 받침 있으면 으로', () => assert.equal(particle('리자몽
 test('particle: 받침 없으면 로', () => assert.equal(particle('파이리', '으로'), '로'));
 test('particle: ㄹ받침은 로', () => assert.equal(particle('나인테일', '으로'), '로'));
 test('particle: 한글이 아니면 받침 없는 쪽', () => assert.equal(particle('pikachu', '은는'), '는'));
+test('particle: 한글이 아니면 으로도 로', () => assert.equal(particle('pikachu', '으로'), '로'));
+test('particle: 빈 문자열도 안전', () => {
+  assert.equal(particle('', '은는'), '는');
+  assert.equal(particle('  ', '으로'), '로');
+});

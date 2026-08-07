@@ -11,7 +11,7 @@ tokenmon에 관심 가져주셔서 감사합니다. 작은 개인 프로젝트�
 npm install
 npm start    # 앱 실행
 npm run lint # 코드 검사
-npm test     # 테스트 (47개)
+npm test     # 테스트 (52개)
 ```
 
 ## 보내주시기 전에
