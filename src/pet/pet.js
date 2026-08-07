@@ -18,6 +18,7 @@ ipcRenderer.on('state', (_, s) => {
   const has = !!(s && s.stage);
   empty.style.display = has ? 'none' : 'block';
   sprite.style.display = has ? 'block' : 'none';
+  sprite.classList.toggle('pending', !!(s && s.pendingEvolution)); // 진화 대기 글로우
   if (!has) {
     // 몬스터가 없어지면 트레이 아이콘도 제거 (마지막 스프라이트가 남는 것 방지)
     if (currentGif != null) { currentGif = null; ipcRenderer.send('tray-icon', null); }
@@ -88,6 +89,7 @@ sprite.addEventListener('pointermove', (e) => {
 sprite.addEventListener('pointerup', (e) => {
   try { sprite.releasePointerCapture(e.pointerId); } catch { /* 이미 해제됨 */ }
   if (down && moved) ipcRenderer.send('drag-end');
+  else if (down && state && state.pendingEvolution) ipcRenderer.send('evolve-go'); // 대기 중 클릭 = 진화 진행
   else if (down) attack();
   down = null;
 });
@@ -98,6 +100,25 @@ window.addEventListener('blur', () => { down = null; });
 empty.addEventListener('click', () => ipcRenderer.send('open-settings'));
 
 sprite.addEventListener('animationend', () => sprite.classList.remove('attacking', 'notifying'));
+
+// ── 진화 연출 (오케스트레이션은 메인이, 시각 효과는 여기서) ──
+// "모습이 변하기 시작했다!" 구간: 하얗게 점멸하는 펄스
+ipcRenderer.on('evolve-start', () => {
+  sprite.classList.remove('pending');
+  sprite.classList.add('evolving');
+});
+ipcRenderer.on('evolve-cancel', () => sprite.classList.remove('evolving'));
+// 커밋: 3연속 플래시 절정에서 다음 단계 GIF로 교체, 끝나면 기쁨의 점프
+ipcRenderer.on('evolve-commit', (_, { gif }) => {
+  sprite.classList.remove('evolving');
+  currentGif = gif; // 뒤따라오는 state 푸시가 평범한 플래시를 또 일으키지 않도록 먼저 잡아둔다
+  flash.classList.add('evolve');
+  setTimeout(setGif, 900); // evolveFlash 두 번째 절정
+  setTimeout(() => {
+    flash.classList.remove('evolve');
+    sprite.classList.add('notifying');
+  }, 2300);
+});
 
 // 외부 알림(Claude Code 훅 등): 점프 + 말풍선. 메시지는 외부 입력이라 이스케이프 필수
 ipcRenderer.on('notify', (_, msg) => {

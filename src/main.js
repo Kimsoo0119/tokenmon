@@ -1,8 +1,8 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, globalShortcut, Notification } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { loadConfig, saveConfig, cachedUsage, isCacheFresh } = require('./config');
-const { stageIndex } = require('./evolution');
+const { stageIndex, resolveStage, particle } = require('./evolution');
 const { fetchClaudeUsage } = require('./usage/claude');
 const { fetchCodexUsage } = require('./usage/codex');
 
@@ -14,10 +14,137 @@ let lastError = false;
 
 const configFile = () => path.join(app.getPath('userData'), 'config.json');
 
+// 몬스터 이름은 사용자 입력이므로 말풍선 HTML에 넣기 전 이스케이프
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+));
+
+// ── 진화 이벤트 ──────────────────────────────────────
+// 표시 단계(shownIdx)는 계산값을 그대로 따르지 않는다. 연출이 켜져 있으면 단계 상승을
+// 감지해도 바로 진화하지 않고 "대기"에 들어가 알림만 주고, 사용자가 펫(또는 알림)을
+// 클릭해야 연출이 시작된다 — 이벤트를 놓치지 않고 사용자의 선택으로 진행되게.
+let shownIdx = null;     // 지금 화면에 보여주는 단계 (연출 커밋 전에는 이전 단계)
+let shownMonster = null; // 그 단계가 속한 몬스터 id
+let pending = null;      // 사용자의 클릭을 기다리는 진화 { toIdx }
+let cinematic = null;    // 클릭 후 진행 중인 연출 { m, fromIdx, toIdx, timer }
+const CINEMATIC_WAIT_MS = 4500; // "모습이 변하기 시작했다!" 구간 — 이 안에 B를 누르면 멈춘다 (이스터에그, UI에는 비공개)
+
+function currentBlock(m) {
+  const b = cfg.evolutionBlock;
+  if (!b || b.monster !== cfg.activeMonster) return null;
+  if (!m || b.blockedTo >= m.stages.length || b.idx >= b.blockedTo) return null; // 단계 구성이 바뀌었으면 무시
+  return b;
+}
+
+function setBlock(b) {
+  cfg.evolutionBlock = b;
+  saveConfig(configFile(), cfg);
+}
+
+// 폴링/설정 변경 후 표시 단계를 갱신한다. animate가 참이고 단계가 올랐으면 진화 대기 진입.
+function applyStage(animate) {
+  const m = cfg.monsters[cfg.activeMonster];
+  if (!m || lastPercent == null) {
+    shownIdx = null; shownMonster = null;
+    if (pending) { pending = null; hideBubble(); }
+    return;
+  }
+  if (cinematic) return; // 연출 중 — 커밋 후 다음 폴링에서 다시 판단
+  const r = resolveStage(stageIndex(m.thresholds, lastPercent), currentBlock(m));
+  if (r.clearBlock) setBlock(null);
+  const target = r.evolveTo ?? r.idx;
+  const fresh = shownMonster !== cfg.activeMonster || shownIdx == null;
+  if (!fresh && animate && cfg.evolutionCinematic !== false && target > shownIdx) {
+    if (!pending) {
+      pending = { toIdx: target };
+      showPendingBubble();
+      const name = m.stages[shownIdx].name;
+      notify(`어…? ${name}의 상태가…!`, '펫을 클릭하면 진화가 시작됩니다.', startPendingEvolution);
+    } else {
+      pending.toIdx = target; // 기다리는 동안 더 높은 임계값을 넘으면 목표만 올린다
+    }
+    return; // shownIdx는 사용자가 진행할 때까지 그대로
+  }
+  if (pending) { pending = null; hideBubble(); } // 리셋·설정 변경 등으로 대기가 무산되면 말풍선도 내린다
+  shownMonster = cfg.activeMonster;
+  shownIdx = target;
+}
+
+// 대기 말풍선은 사용자가 진행(클릭)할 때까지 계속 떠 있는다
+function showPendingBubble() {
+  const m = cfg.monsters[cfg.activeMonster];
+  if (!pending || !m || shownIdx == null) return;
+  showBubble(`어…? <b>${esc(m.stages[shownIdx].name)}</b>의 상태가…!`, Infinity);
+}
+
+function notify(title, body, onClick) {
+  try {
+    if (!Notification.isSupported()) return;
+    const n = new Notification({ title, body });
+    if (onClick) n.on('click', onClick);
+    n.show();
+  } catch { /* 알림 권한이 없어도 앱은 계속 */ }
+}
+
+// 대기 중인 진화를 사용자가 진행시켰다 (펫 클릭 또는 알림 클릭)
+function startPendingEvolution() {
+  if (!pending || cinematic) return;
+  const m = cfg.monsters[cfg.activeMonster];
+  if (!m || shownIdx == null) return;
+  const toIdx = Math.min(pending.toIdx, m.stages.length - 1);
+  pending = null;
+  if (toIdx <= shownIdx) { hideBubble(); return pushState(); }
+  cinematic = { m, fromIdx: shownIdx, toIdx, timer: setTimeout(commitEvolution, CINEMATIC_WAIT_MS) };
+  if (petWin && !petWin.isDestroyed()) petWin.webContents.send('evolve-start');
+  showBubble(`<b>${esc(m.stages[shownIdx].name)}</b>의 모습이 변하기 시작했다!`, CINEMATIC_WAIT_MS);
+  // 연출 동안만 시스템 전역에서 B를 받는다(이스터에그). 다른 앱이 선점했으면 조용히 포기
+  try { globalShortcut.register('B', cancelEvolution); } catch { /* 선점됨 */ }
+  pushState(); // 대기 글로우 해제
+}
+
+function commitEvolution() {
+  const { m, fromIdx, toIdx } = cinematic;
+  cinematic = null;
+  globalShortcut.unregister('B');
+  const from = m.stages[fromIdx];
+  const to = m.stages[toIdx];
+  shownMonster = cfg.activeMonster;
+  shownIdx = toIdx;
+  if (petWin && !petWin.isDestroyed()) petWin.webContents.send('evolve-commit', { gif: to.gif });
+  // 플래시가 잦아들 무렵에 맞춰 축하 메시지
+  setTimeout(() => showBubble(
+    `축하합니다! <b>${esc(from.name)}</b>${particle(from.name, '은는')} <b>${esc(to.name)}</b>${particle(to.name, '으로')} 진화했습니다!`,
+    5000), 1500);
+  notify('축하합니다!', `${from.name}${particle(from.name, '은는')} ${to.name}${particle(to.name, '으로')} 진화했습니다!`);
+  updateTray(); pushState(); pushPanel();
+}
+
+function cancelEvolution() {
+  if (!cinematic) return;
+  clearTimeout(cinematic.timer);
+  const { m, fromIdx, toIdx } = cinematic;
+  cinematic = null;
+  pending = null;
+  globalShortcut.unregister('B');
+  setBlock({ monster: cfg.activeMonster, idx: fromIdx, blockedTo: toIdx });
+  if (petWin && !petWin.isDestroyed()) petWin.webContents.send('evolve-cancel');
+  showBubble(`…어라? <b>${esc(m.stages[fromIdx].name)}</b>의 진화가 멈췄다!`, 4000);
+  updateTray(); pushState(); pushPanel();
+}
+
+// 설정 변경 등으로 전제가 바뀌면 연출을 조용히 접는다 (차단 저장 없음)
+function abortCinematic() {
+  if (!cinematic) return;
+  clearTimeout(cinematic.timer);
+  cinematic = null;
+  globalShortcut.unregister('B');
+  if (petWin && !petWin.isDestroyed()) petWin.webContents.send('evolve-cancel');
+}
+
 function currentState() {
   const m = cfg.monsters[cfg.activeMonster];
-  if (!m || lastPercent == null) return null;
-  const idx = stageIndex(m.thresholds, lastPercent);
+  if (!m || shownIdx == null) return null;
+  const idx = Math.min(shownIdx, m.stages.length - 1);
   return {
     percent: lastPercent,
     stage: m.stages[idx],
@@ -25,6 +152,7 @@ function currentState() {
     nextThreshold: m.thresholds[idx] ?? null,
     error: lastError,
     petSize: cfg.petSize || 140,
+    pendingEvolution: !!pending, // 펫 창이 글로우를 켜고, 클릭을 진화 진행으로 해석한다
   };
 }
 
@@ -65,6 +193,7 @@ async function poll() {
       lastError = true; // 마지막 성공 값 유지
     }
   }
+  applyStage(true); // 사용량 변화로 단계가 올랐으면 여기서 진화 연출이 시작된다
   updateTray();
   pushState();
   pushPanel();
@@ -72,12 +201,13 @@ async function poll() {
 
 function updateTray() {
   // 아이콘은 펫 창이 GIF 첫 프레임을 PNG로 떠서 tray-icon IPC로 보냄 (nativeImage는 GIF 미지원)
+  if (cinematic || pending) return tray.setTitle(' ✨'); // 진화 대기/연출 중엔 알림 표시 유지
   tray.setTitle(lastError ? ' ⚠️' : lastPercent == null ? ' …' : ` Lv.${Math.round(lastPercent)}`);
 }
 
 function panelData() {
   const m = cfg.monsters[cfg.activeMonster];
-  const idx = (m && lastPercent != null) ? stageIndex(m.thresholds, lastPercent) : 0;
+  const idx = m ? Math.min(shownIdx ?? 0, m.stages.length - 1) : 0;
   return {
     source: cfg.source,
     error: lastError,
@@ -167,7 +297,16 @@ function showBubble(html, duration = 2500) {
   bubbleWin.webContents.send('bubble-content', { html, below, tailX: Math.round(petCenterX - bx) });
   bubbleWin.showInactive();
   clearTimeout(bubbleTimer);
-  bubbleTimer = setTimeout(() => { if (!bubbleWin.isDestroyed()) bubbleWin.hide(); }, duration);
+  if (duration === Infinity) return; // 대기 말풍선 — 지울 때까지 유지
+  bubbleTimer = setTimeout(() => {
+    if (pending) return showPendingBubble(); // 임시 말풍선이 걷히면 대기 말풍선으로 복귀
+    if (!bubbleWin.isDestroyed()) bubbleWin.hide();
+  }, duration);
+}
+
+function hideBubble() {
+  clearTimeout(bubbleTimer);
+  if (bubbleWin && !bubbleWin.isDestroyed()) bubbleWin.hide();
 }
 
 function createPetWindow() {
@@ -228,6 +367,7 @@ app.whenReady().then(() => {
     lastUsage = cached;
     lastPercent = cached.weekly.pct; // 첫 폴링 전/백오프 중에도 마지막 값으로 표시
   }
+  applyStage(false); // 시작 직후에는 연출 없이 현재 단계를 바로 보여준다
   tray = new Tray(nativeImage.createEmpty());
   tray.setTitle(' …');
   const menu = Menu.buildFromTemplate([
@@ -260,6 +400,8 @@ ipcMain.on('panel-resize', (e, h) => {
 });
 ipcMain.on('config-changed', () => {
   const prevSource = cfg.source;
+  const prevMonster = cfg.activeMonster;
+  abortCinematic(); // 연출 도중 설정이 바뀌면 전제가 무너지므로 조용히 접는다
   cfg = loadConfig(configFile());
   if (petWin && !petWin.isDestroyed()) {
     const [x, y] = petWin.getPosition();
@@ -274,6 +416,9 @@ ipcMain.on('config-changed', () => {
     lastPercent = cached ? cached.weekly.pct : null;
     lastError = false;
   }
+  // 소스·몬스터가 그대로면(임계값 편집 등) 단계 상승에 연출을 태운다 — 연출 미리보기도 겸함.
+  // 소스나 몬스터가 바뀌었을 때는 "진화"가 아니므로 즉시 반영.
+  applyStage(!sourceChanged && cfg.activeMonster === prevMonster);
   updateTray();
   pushState();
   pushPanel();
@@ -298,11 +443,14 @@ ipcMain.on('move-pet', (_, { dx, dy }) => {
   petWin.setPosition(dragStart[0] + dx, dragStart[1] + dy);
 });
 ipcMain.on('bubble', (_, { html, duration }) => showBubble(html, duration));
+ipcMain.on('evolve-go', startPendingEvolution);
 ipcMain.on('open-settings', openPanelSettings);
 ipcMain.on('drag-end', () => {
   const [x, y] = petWin.getPosition();
   cfg.petPosition = { x, y };
   saveConfig(configFile(), cfg);
+  showPendingBubble(); // 대기 중이면 옮긴 자리로 말풍선이 따라온다
 });
 
 app.on('window-all-closed', () => { /* 트레이 상주 앱: 종료하지 않음 */ });
+app.on('will-quit', () => globalShortcut.unregisterAll());

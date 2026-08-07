@@ -61,6 +61,10 @@ document.querySelectorAll('input[name=source]').forEach((r) => {
   r.onchange = () => { cfg.source = r.value; save(); };
 });
 
+// --- 진화 이벤트 연출 ---
+$('evo-cine').checked = cfg.evolutionCinematic !== false;
+$('evo-cine').onchange = () => { cfg.evolutionCinematic = $('evo-cine').checked; save(); };
+
 // --- 펫 크기 ---
 $('pet-size').value = cfg.petSize || 140;
 $('pet-size-label').textContent = `${cfg.petSize || 140}px`;

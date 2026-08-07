@@ -87,7 +87,7 @@
   #settings-sec h2 { font-size: 10.5px; font-weight: 700; color: var(--faint);
     letter-spacing: 1px; margin: 0 0 7px; }
   #settings-sec label { margin-right: 12px; font-size: 12.5px; }
-  input[type=radio], input[type=range] { accent-color: var(--accent); }
+  input[type=radio], input[type=range], input[type=checkbox] { accent-color: var(--accent); }
   #settings-sec input[type=text] { width: 152px; background: var(--field); color: var(--text);
     border: 1px solid var(--field-line); border-radius: 8px; padding: 5px 9px;
     font: 12.5px var(--sans); outline: none;
@@ -154,6 +154,12 @@
       <h2>펫 크기</h2>
       <input id="pet-size" type="range" min="60" max="400" step="10" style="width:200px;vertical-align:middle">
       <span id="pet-size-label"></span>
+    </section>
+    <section>
+      <h2>진화 이벤트</h2>
+      <label><input type="checkbox" id="evo-cine"> 게임식 연출과 알림 켜기</label>
+      <div class="hint">진화 조건이 되면 알림을 주고 기다립니다. 펫을 클릭하면 진화가 시작돼요.
+        끄면 지금까지처럼 짧은 플래시만 나옵니다.</div>
     </section>
     <section>
       <h2>포켓몬 추가</h2>

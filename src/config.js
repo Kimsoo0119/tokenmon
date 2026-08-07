@@ -11,6 +11,8 @@ const DEFAULTS = {
   petPosition: null,
   activeMonster: null,
   monsters: {},
+  evolutionCinematic: true,   // 게임식 진화 연출 (끄면 짧은 플래시만)
+  evolutionBlock: null,       // 이스터에그로 막아둔 진화 { monster, idx, blockedTo }
 };
 
 // 소스별 캐시로 대체된 옛 필드 — 남아 있으면 헷갈리므로 읽을 때 걷어낸다
