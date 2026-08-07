@@ -5,9 +5,7 @@ const flash = document.getElementById('flash');
 let state = null;
 let currentGif = null;
 
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
-  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
-));
+const { esc } = require('../esc');
 
 ipcRenderer.on('state', (_, s) => {
   state = s;

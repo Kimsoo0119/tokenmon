@@ -106,5 +106,6 @@
   ipcRenderer.on('expand-settings', () => { if (sec.hidden) q('settings').onclick(); });
 
   q('refresh').onclick = () => ipcRenderer.send('panel-refresh');
+  q('dex').onclick = () => ipcRenderer.send('open-dex');
   q('quit').onclick = () => ipcRenderer.send('panel-quit');
 })();

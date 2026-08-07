@@ -19,7 +19,9 @@
   body.scroll { overflow-y: auto; scrollbar-width: none; }
   body.scroll::-webkit-scrollbar { display: none; }
   body { font: 13px/1.45 var(--sans);
-    color: var(--text); -webkit-font-smoothing: antialiased; }
+    color: var(--text); -webkit-font-smoothing: antialiased;
+    /* 한국어는 기본이 글자 단위 줄바꿈이라 어절이 잘린다 */
+    word-break: keep-all; overflow-wrap: break-word; }
 
   #card { background: linear-gradient(180deg, rgba(38,38,42,.97), var(--bg) 120px);
     border: 1px solid var(--card-line); border-radius: 14px; padding: 16px 18px 14px;
@@ -141,10 +143,12 @@
   </div>
   <div class="btns">
     <button id="refresh">새로고침</button>
+    <button id="dex">도감</button>
     <button id="settings">설정 ▾</button>
     <button id="quit">종료</button>
   </div>
   <div id="settings-sec" hidden>
+    <div id="pick-lock" class="hint"></div>
     <section>
       <h2>사용량 소스</h2>
       <label><input type="radio" name="source" value="claude"> Claude</label>
@@ -156,6 +160,18 @@
       <span id="pet-size-label"></span>
     </section>
     <section>
+      <h2>도감</h2>
+      <label><input type="checkbox" id="dex-enabled"> 도감 사용</label>
+      <label style="margin-left:14px"><input type="checkbox" id="dex-free"> 규칙 없이 둘러보기</label>
+      <div class="hint">도감을 켜면 한 주에 한 마리만 고를 수 있습니다.
+        규칙 없이 둘러보기를 켜면 전 종이 보이고 아무 때나 바꿀 수 있어요 (기록은 그대로 쌓입니다)</div>
+    </section>
+    <section id="dex-pick-sec" hidden>
+      <h2>포켓몬 선택</h2>
+      <button id="open-dex-btn">도감에서 고르기</button>
+      <div class="hint">도감을 쓰는 동안에는 포켓몬을 도감에서 고릅니다</div>
+    </section>
+    <section id="poke-sec">
       <h2>포켓몬 추가</h2>
       <input id="poke-name" type="text" placeholder="한글 이름 (예: 피카츄)">
       <button id="poke-lookup">불러오기</button>
@@ -165,14 +181,14 @@
         <button id="poke-add" hidden>추가</button>
       </div>
     </section>
-    <section>
+    <section id="custom-sec">
       <h2>커스텀 몬스터 (GIF 직접 지정)</h2>
       <input id="custom-name" type="text" placeholder="이름">
       <input id="custom-files" type="file" accept=".gif" multiple>
       <button id="custom-add">추가</button>
       <div class="hint">파일명 정렬 순서 = 진화 순서</div>
     </section>
-    <section>
+    <section id="monsters-sec">
       <h2>몬스터 목록</h2>
       <ul id="monsters"></ul>
       <div class="hint">임계값: 쉼표 구분, 오름차순, 개수 = 단계 수 - 1</div>

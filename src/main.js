@@ -1,18 +1,28 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, dialog } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
-const { loadConfig, saveConfig, cachedUsage, isCacheFresh } = require('./config');
+const { loadConfig, saveConfig, cachedUsage, isCacheFresh, isCustomId } = require('./config');
 const { stageIndex } = require('./evolution');
+const { buildIndex, koName } = require('./dex');
+const {
+  monsterIdFor, buildMonster, stageSlugs, seenSlugsFor,
+  nextFloor, reachedSlugs, pickLock: lockOf, mergeStamps,
+  setThresholds, removeMonster, addCustomMonster,
+} = require('./monsters');
+const { downloadGif } = require('./pokeapi');
 const { fetchClaudeUsage } = require('./usage/claude');
 const { fetchCodexUsage } = require('./usage/codex');
 
-let cfg, petWin, panelWin, bubbleWin, tray;
+const dexIndex = buildIndex(require('../assets/dex.json'));
+
+let cfg, petWin, panelWin, bubbleWin, dexWin, tray;
 let bubbleTimer;
 let lastPercent = null;
 let lastUsage = null; // { fiveHour: {pct, resetsAt}|null, weekly: {pct, resetsAt} }
 let lastError = false;
 
 const configFile = () => path.join(app.getPath('userData'), 'config.json');
+const cacheDir = () => path.join(app.getPath('userData'), 'cache');
 
 function currentState() {
   const m = cfg.monsters[cfg.activeMonster];
@@ -30,6 +40,47 @@ function currentState() {
 
 function pushState() {
   if (petWin && !petWin.isDestroyed()) petWin.webContents.send('state', currentState());
+}
+
+const weeklyResetAt = () => (lastUsage && lastUsage.weekly ? lastUsage.weekly.resetsAt ?? null : null);
+
+// 한 주에 한 마리를 끝까지 키우자는 규칙. 고른 시점의 주간 리셋 시각을 적어두고,
+// 그 시각이 지나 새 주가 시작되기 전에는 다른 계통으로 바꿀 수 없게 막는다.
+// 소진율을 아직 모르면 막지 않는다 — 조회에 실패했다고 갇히면 곤란하다.
+const pickLock = () => lockOf(cfg);
+
+// 도감 인정 시작선은 syncDex가 id가 달라진 것을 보고 알아서 다시 잡는다
+function setActiveMonster(id) {
+  cfg.activeMonster = id;
+  cfg.activePickedResetAt = weeklyResetAt();
+}
+
+// 활성 몬스터의 도감 인정 시작선. 몬스터를 갈아타면 다시 잡는다. 설정에 두지 않는
+// 이유는 앱을 껐다 켜면 지금 단계를 물려받은 것으로 보는 편이 안전해서다 —
+// 이미 남은 기록은 그대로고, 새로 공짜로 얻는 것만 막힌다.
+let dexFloorId = null;
+let dexFloor = null;
+
+// 도감 기록은 메인만 쓴다. 렌더러가 각자 남기면 설정을 저장할 때마다 서로의
+// 기록을 덮으므로, 렌더러는 읽기만 하고 여기서만 갱신한다.
+// 등록한 몬스터의 계통을 합집합으로 쌓기 때문에 몬스터를 지워도 기록은 남는다.
+function syncDex() {
+  const now = Date.now();
+  let changed = mergeStamps(cfg.dex.seen, seenSlugsFor(dexIndex, cfg.monsters), now);
+  const id = cfg.activeMonster;
+  const active = cfg.monsters[id];
+  if (active && !isCustomId(id) && lastPercent != null) {
+    if (dexFloorId !== id) { dexFloorId = id; dexFloor = null; }
+    dexFloor = nextFloor(active, lastPercent, dexFloor);
+    if (mergeStamps(cfg.dex.caught, reachedSlugs(active, lastPercent, dexFloor), now)) changed = true;
+  }
+  return changed;
+}
+
+function persistDex() {
+  if (!syncDex()) return;
+  saveConfig(configFile(), cfg);
+  pushDex();
 }
 
 let claudeBackoffUntil = 0; // usage API가 429를 주면 retry-after까지 조회 중단
@@ -65,6 +116,7 @@ async function poll() {
       lastError = true; // 마지막 성공 값 유지
     }
   }
+  persistDex();
   updateTray();
   pushState();
   pushPanel();
@@ -90,6 +142,9 @@ function panelData() {
       nextThreshold: m.thresholds[idx] ?? null,
       gif: m.stages[idx].gif, // 패널 링 한가운데에 현재 단계 스프라이트를 띄움
     } : null,
+    pick: pickLock(),
+    dexEnabled: !!cfg.dexEnabled,
+    dexFreeMode: !!cfg.dexFreeMode,
   };
 }
 
@@ -184,6 +239,69 @@ function createPetWindow() {
   petWin.webContents.on('did-finish-load', pushState);
 }
 
+// 도감은 649칸을 스크롤하며 보는 화면이라 패널에 넣을 수 없다. 패널은 트레이
+// 아래 남은 높이에 맞춰 스스로 크기를 조절하는데, 거기에 그리드를 얹으면 그
+// 조절이 무너진다. 다른 창들과 달리 위에 뜨지 않고 크기를 바꿀 수 있다.
+function dexState() {
+  const active = cfg.monsters[cfg.activeMonster];
+  return {
+    seen: cfg.dex.seen,
+    caught: cfg.dex.caught,
+    activeSlugs: active && !isCustomId(cfg.activeMonster) ? stageSlugs(active).filter(Boolean) : [],
+    source: cfg.source,
+    pick: pickLock(),
+    enabled: !!cfg.dexEnabled,
+    freeMode: !!cfg.dexFreeMode,
+    onboarded: !!cfg.dexOnboarded,
+  };
+}
+
+function pushDex() {
+  if (dexWin && !dexWin.isDestroyed()) dexWin.webContents.send('dex-changed', dexState());
+}
+
+// 도감을 켜면 한 주에 한 마리라는 제약이 따라오므로, 켜기 전에 무엇이 달라지는지
+// 알리고 동의를 받는다. 렌더러의 confirm은 패널을 blur시켜 닫아버려 쓸 수 없다.
+async function confirmEnableDex() {
+  const { response } = await dialog.showMessageBox({
+    type: 'question',
+    buttons: ['취소', '활성화'],
+    defaultId: 1,
+    cancelId: 0,
+    message: '도감을 활성화할까요?',
+    detail: '키워본 포켓몬이 도감에 기록되고, 아직 키우지 않은 종은 실루엣으로 남습니다.\n\n'
+      + '대신 한 주에 한 마리만 고를 수 있게 됩니다. 주간 사용량이 리셋되기 전까지는 '
+      + '키우던 포켓몬을 바꿀 수 없습니다.\n\n'
+      + '설정에서 언제든 끄거나, 규칙 없이 둘러보기로 바꿀 수 있습니다.',
+  });
+  if (response !== 1) return false;
+  cfg.dexEnabled = true;
+  saveConfig(configFile(), cfg);
+  pushPanel();
+  return true;
+}
+
+async function openDex() {
+  if (!cfg.dexEnabled && !(await confirmEnableDex())) return;
+  if (dexWin && !dexWin.isDestroyed()) {
+    dexWin.show();
+  } else {
+    dexWin = new BrowserWindow({
+      width: 880, height: 620, minWidth: 520, minHeight: 400,
+      show: false, frame: false, titleBarStyle: 'hidden',
+      trafficLightPosition: { x: 12, y: 14 },
+      backgroundColor: '#18181b', // 투명 창 + 리사이즈는 유령 그림자를 남긴다
+      webPreferences: { nodeIntegration: true, contextIsolation: false },
+    });
+    dexWin.loadFile(path.join(__dirname, 'dex', 'dex.html'));
+    dexWin.once('ready-to-show', () => dexWin.show());
+    dexWin.on('closed', () => { dexWin = null; });
+  }
+  // 독 아이콘을 숨긴 앱이라 창을 띄우는 것만으로는 키보드 초점이 오지 않는다.
+  // 이게 없으면 도감을 열어도 검색창에 글자가 들어가지 않는다.
+  app.focus({ steal: true });
+}
+
 // 설정은 패널의 인라인 섹션으로 통일 — 패널을 트레이 밑에 펼친 상태로 연다
 function openPanelSettings() {
   if (!panelWin || panelWin.isDestroyed()) return;
@@ -228,9 +346,11 @@ app.whenReady().then(() => {
     lastUsage = cached;
     lastPercent = cached.weekly.pct; // 첫 폴링 전/백오프 중에도 마지막 값으로 표시
   }
+  persistDex(); // 재시작 직후에도 마지막으로 알던 단계까지는 기록해둔다
   tray = new Tray(nativeImage.createEmpty());
   tray.setTitle(' …');
   const menu = Menu.buildFromTemplate([
+    { label: '도감', click: openDex },
     { label: '설정', click: openPanelSettings },
     { label: '지금 새로고침', click: poll },
     { type: 'separator' },
@@ -247,6 +367,95 @@ app.whenReady().then(() => {
 });
 
 ipcMain.on('get-config-path', (e) => { e.returnValue = configFile(); });
+ipcMain.handle('dex-state', () => dexState());
+// 도감 설정도 메인이 소유한다 — 렌더러가 각자 쓰면 저장할 때마다 서로를 덮는다
+ipcMain.handle('set-dex-option', (_, opt) => {
+  if (typeof opt.enabled === 'boolean') cfg.dexEnabled = opt.enabled;
+  if (typeof opt.freeMode === 'boolean') cfg.dexFreeMode = opt.freeMode;
+  saveConfig(configFile(), cfg);
+  pushPanel();
+  pushDex();
+  return { ok: true, enabled: !!cfg.dexEnabled, freeMode: !!cfg.dexFreeMode };
+});
+ipcMain.on('dex-onboarded', () => {
+  cfg.dexOnboarded = true;
+  saveConfig(configFile(), cfg);
+});
+// 몬스터 목록을 고친 뒤에 늘 함께 해야 하는 일. 설정 창은 열릴 때 읽어둔 사본을
+// 들고 있어 목록을 저장하면 그 사이 등록된 몬스터를 덮는다. 그래서 목록을 바꾸는
+// 경로를 전부 이 아래 핸들러로 모으고, 창은 결과만 받아 설정을 다시 읽는다.
+function commitMonsters() {
+  syncDex();
+  saveConfig(configFile(), cfg);
+  pushState();
+  pushPanel();
+  pushDex();
+}
+
+// 활성 몬스터 변경도 메인이 판정한다 — 렌더러가 직접 설정을 고치면 잠금을 우회한다
+ipcMain.handle('set-active-monster', (_, id) => {
+  // 방금 렌더러가 추가한 몬스터일 수 있다 — config-changed보다 먼저 닿았으면 다시 읽는다
+  if (!cfg.monsters[id]) cfg = loadConfig(configFile());
+  if (!cfg.monsters[id]) return { ok: false, error: '없는 몬스터예요' };
+  if (id !== cfg.activeMonster && pickLock().locked) {
+    return { ok: false, error: '이번 주에 키울 포켓몬은 이미 골랐어요' };
+  }
+  setActiveMonster(id);
+  commitMonsters();
+  return { ok: true };
+});
+ipcMain.handle('set-thresholds', (_, id, thresholds) => {
+  const res = setThresholds(cfg, id, thresholds);
+  if (res.ok) commitMonsters();
+  return res;
+});
+ipcMain.handle('delete-monster', (_, id) => {
+  const res = removeMonster(cfg, id);
+  if (res.ok) commitMonsters();
+  return res;
+});
+// GIF를 고르고 캐시로 복사하는 일은 렌더러만 할 수 있어 그대로 두고, 설정에
+// 넣는 것부터 여기서 한다. 등록과 갈아타기를 한 번에 끝내야 그 사이에 설정을
+// 저장하는 창이 끼어들지 않는다.
+ipcMain.handle('add-custom-monster', (_, name, stages) => {
+  if (pickLock().locked) return { ok: false, error: '이번 주에 키울 포켓몬은 이미 골랐어요' };
+  const res = addCustomMonster(cfg, name, stages);
+  if (!res.ok) return res;
+  // 포켓몬을 등록할 때와 마찬가지로 방금 만든 몬스터로 바로 갈아탄다
+  setActiveMonster(res.id);
+  commitMonsters();
+  return res;
+});
+ipcMain.on('open-dex', openDex);
+ipcMain.on('dex-close', () => { if (dexWin && !dexWin.isDestroyed()) dexWin.hide(); });
+// 패널과 도감이 각자 등록 코드를 들면 언젠가 서로 어긋나므로 메인에 하나만 둔다.
+// 스프라이트를 모두 받은 뒤에야 설정을 건드려서, 도중에 실패해도 설정은 멀쩡하다.
+ipcMain.handle('add-monster', async (_, chainPath) => {
+  try {
+    if (pickLock().locked) throw new Error('이번 주에 키울 포켓몬은 이미 골랐어요');
+    if (!Array.isArray(chainPath) || !chainPath.length) throw new Error('진화 경로가 비어 있어요');
+    // 도감에 있는 슬러그만 통과시킨다 — 경로를 벗어나는 이름이 파일 이름이 되는 걸 막는다
+    for (const slug of chainPath) {
+      if (!dexIndex.bySlug[slug]) throw new Error(`도감에 없는 종이에요: ${slug}`);
+    }
+    const gifs = [];
+    for (const slug of chainPath) gifs.push(await downloadGif(slug, cacheDir()));
+    const id = monsterIdFor(chainPath);
+    const built = buildMonster(chainPath, gifs, (s) => koName(dexIndex, s));
+    // 이미 키워본 계통이면 손봐둔 임계값을 지우지 않는다
+    const prev = cfg.monsters[id];
+    const keepThresholds = prev && Array.isArray(prev.thresholds)
+      && prev.thresholds.length === built.thresholds.length;
+    cfg.monsters[id] = keepThresholds ? { ...built, thresholds: prev.thresholds } : built;
+    // 고른 포켓몬으로 바로 갈아탄다 — 추가했는데 화면이 그대로면 고른 보람이 없다.
+    // 이전 몬스터는 목록에 남아 있어 다음 주에 다시 고를 수 있다.
+    setActiveMonster(id);
+    commitMonsters();
+    return { ok: true, id };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
 ipcMain.on('panel-refresh', poll);
 ipcMain.on('panel-quit', () => app.quit());
 ipcMain.on('panel-pinned', (_, v) => { panelPinned = !!v; });
@@ -274,9 +483,11 @@ ipcMain.on('config-changed', () => {
     lastPercent = cached ? cached.weekly.pct : null;
     lastError = false;
   }
+  persistDex(); // 활성 몬스터나 임계값이 바뀌었을 수 있다
   updateTray();
   pushState();
   pushPanel();
+  pushDex(); // 활성 몬스터가 바뀌면 도감에서 표시하는 칸도 달라진다
   // 오갈 때마다 조회하면 호출 제한에 걸리므로, 최근에 받아둔 값이 있으면 건너뛴다
   if (sourceChanged && !isCacheFresh(cfg, cfg.source, pollIntervalMs())) poll();
 });
