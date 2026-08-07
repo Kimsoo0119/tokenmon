@@ -1,7 +1,7 @@
 // 몬스터 하나를 만들고 도감 기록으로 옮기는 순수 로직
-const { evenThresholds, stageIndex } = require('./evolution');
+const { evenThresholds, validThresholds, stageIndex } = require('./evolution');
 const { chainSlugs } = require('./dex');
-const { isCustomId } = require('./config');
+const { isCustomId, CUSTOM_PREFIX } = require('./config');
 
 // 예전부터 쓰던 방식 그대로 — 이미 저장된 설정의 id와 어긋나면 같은 몬스터가
 // 둘로 늘어난다. 슬러그에 하이픈이 있어 되돌릴 수 없으므로 stages에 slug를
@@ -84,7 +84,53 @@ function mergeStamps(target, slugs, now) {
   return changed;
 }
 
+// 몬스터 목록은 메인만 쓴다. 설정 창은 열릴 때 읽어둔 설정 사본을 계속 들고
+// 있어서, 그 사이 도감이 등록한 몬스터를 저장할 때 통째로 덮어버린다. 목록을
+// 바꾸는 일은 어느 창에서 시작하든 아래 세 함수로 모으고, 창은 결과만 받아
+// 설정을 다시 읽는다. 도감 기록을 메인만 쓰게 한 것과 같은 이유다.
+//
+// 결과는 {ok} 또는 {ok:false, error} — 메시지는 그대로 사용자에게 보여준다.
+
+function setThresholds(cfg, id, thresholds) {
+  const m = cfg.monsters[id];
+  if (!m) return { ok: false, error: '없는 몬스터예요' };
+  const t = Array.isArray(thresholds) ? thresholds.map(Number) : [];
+  if (t.length !== m.stages.length - 1 || !t.every(Number.isFinite) || !validThresholds(t)) {
+    return { ok: false, error: '임계값이 잘못됐어요. 오름차순 0~100, 개수 = 단계 수 - 1' };
+  }
+  m.thresholds = t;
+  return { ok: true };
+}
+
+function removeMonster(cfg, id) {
+  if (!cfg.monsters[id]) return { ok: false, error: '없는 몬스터예요' };
+  delete cfg.monsters[id];
+  // 지운 것이 키우던 몬스터면 남은 것 중 하나로 넘긴다. 고른 시각은 새로 찍지
+  // 않는다 — 지우는 것은 고르는 것이 아니라서, 여기서 찍으면 없던 잠금이 생긴다.
+  if (cfg.activeMonster === id) cfg.activeMonster = Object.keys(cfg.monsters)[0] ?? null;
+  return { ok: true };
+}
+
+// GIF 파일을 고르고 복사하는 일은 렌더러만 할 수 있어(webUtils) 그대로 두고,
+// 만들어진 단계 목록만 받아 설정에 넣는다.
+const CUSTOM_NAME = /^[\w가-힣 -]+$/;
+
+function addCustomMonster(cfg, name, stages) {
+  const nm = String(name ?? '').trim();
+  if (!nm || !CUSTOM_NAME.test(nm)) {
+    return { ok: false, error: '이름에는 한글/영문/숫자/공백/하이픈만 쓸 수 있어요' };
+  }
+  if (!Array.isArray(stages) || !stages.length
+    || !stages.every((s) => s && typeof s.name === 'string' && typeof s.gif === 'string')) {
+    return { ok: false, error: '이름과 GIF 파일을 지정해줘요' };
+  }
+  const id = CUSTOM_PREFIX + nm;
+  cfg.monsters[id] = { displayName: nm, stages, thresholds: evenThresholds(stages.length) };
+  return { ok: true, id };
+}
+
 module.exports = {
   monsterIdFor, buildMonster, stageSlugs, seenSlugsFor,
   nextFloor, reachedSlugs, pickLock, mergeStamps,
+  setThresholds, removeMonster, addCustomMonster,
 };

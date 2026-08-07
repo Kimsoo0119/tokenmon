@@ -4,6 +4,7 @@ const { buildIndex } = require('../src/dex');
 const {
   monsterIdFor, buildMonster, stageSlugs, seenSlugsFor,
   nextFloor, reachedSlugs, pickLock, mergeStamps,
+  setThresholds, removeMonster, addCustomMonster,
 } = require('../src/monsters');
 
 const idx = buildIndex({
@@ -161,4 +162,76 @@ test('mergeStamps: 새로 찍을 게 없으면 거짓', () => {
   const bag = { pichu: 100 };
   assert.equal(mergeStamps(bag, ['pichu', null], 200), false);
   assert.deepEqual(bag, { pichu: 100 });
+});
+
+// 설정 창은 열릴 때 읽어둔 사본을 들고 있어서, 목록을 직접 고쳐 저장하면 그 사이
+// 도감이 등록한 몬스터를 덮는다. 목록을 바꾸는 일은 모두 메인의 살아 있는 설정에
+// 대고 하므로, 다른 창이 등록한 것이 함께 사라지지 않는다.
+const twoStage = (name) => ({ displayName: name, stages: [{ name: 'a' }, { name: 'b' }], thresholds: [50] });
+const listCfg = () => ({
+  monsters: { 'pikachu-raichu': twoStage('라이츄') },
+  activeMonster: 'pikachu-raichu',
+});
+
+test('setThresholds: 임계값을 바꿔도 그 사이 등록된 몬스터는 남는다', () => {
+  const cfg = listCfg();
+  cfg.monsters['charmander-charizard'] = twoStage('리자몽'); // 도감이 방금 등록
+  assert.deepEqual(setThresholds(cfg, 'pikachu-raichu', [70]), { ok: true });
+  assert.deepEqual(cfg.monsters['pikachu-raichu'].thresholds, [70]);
+  assert.deepEqual(Object.keys(cfg.monsters), ['pikachu-raichu', 'charmander-charizard']);
+});
+test('setThresholds: 없는 몬스터는 거절한다', () =>
+  assert.equal(setThresholds(listCfg(), 'nope', [50]).ok, false));
+test('setThresholds: 개수가 단계 수 - 1이 아니면 거절한다', () =>
+  assert.equal(setThresholds(listCfg(), 'pikachu-raichu', [30, 60]).ok, false));
+test('setThresholds: 오름차순 0~100을 벗어나면 거절한다', () => {
+  assert.equal(setThresholds(listCfg(), 'pikachu-raichu', [0]).ok, false);
+  assert.equal(setThresholds(listCfg(), 'pikachu-raichu', [100]).ok, false);
+});
+test('setThresholds: 숫자가 아니면 거절한다', () =>
+  assert.equal(setThresholds(listCfg(), 'pikachu-raichu', ['가']).ok, false));
+
+test('removeMonster: 지우면 목록에서 빠진다', () => {
+  const cfg = listCfg();
+  cfg.monsters['charmander-charizard'] = twoStage('리자몽');
+  assert.deepEqual(removeMonster(cfg, 'charmander-charizard'), { ok: true });
+  assert.deepEqual(Object.keys(cfg.monsters), ['pikachu-raichu']);
+  assert.equal(cfg.activeMonster, 'pikachu-raichu');
+});
+test('removeMonster: 키우던 몬스터를 지우면 남은 것으로 넘어간다', () => {
+  const cfg = listCfg();
+  cfg.monsters['charmander-charizard'] = twoStage('리자몽');
+  removeMonster(cfg, 'pikachu-raichu');
+  assert.equal(cfg.activeMonster, 'charmander-charizard');
+});
+test('removeMonster: 마지막 한 마리를 지우면 키우는 몬스터가 없어진다', () => {
+  const cfg = listCfg();
+  removeMonster(cfg, 'pikachu-raichu');
+  assert.equal(cfg.activeMonster, null);
+});
+// 지우는 것은 고르는 것이 아니다 — 여기서 고른 시각을 찍으면 없던 잠금이 생긴다
+test('removeMonster: 고른 시각은 건드리지 않는다', () => {
+  const cfg = { ...listCfg(), activePickedResetAt: 2000 };
+  cfg.monsters['charmander-charizard'] = twoStage('리자몽');
+  removeMonster(cfg, 'pikachu-raichu');
+  assert.equal(cfg.activePickedResetAt, 2000);
+});
+test('removeMonster: 없는 몬스터는 거절한다', () =>
+  assert.equal(removeMonster(listCfg(), 'nope').ok, false));
+
+test('addCustomMonster: 단계 수에 맞는 임계값을 붙여 넣는다', () => {
+  const cfg = listCfg();
+  const stages = [{ name: '뿌꾸 1단계', gif: '/c/custom-뿌꾸-0.gif' }, { name: '뿌꾸 2단계', gif: '/c/custom-뿌꾸-1.gif' }];
+  assert.deepEqual(addCustomMonster(cfg, ' 뿌꾸 ', stages), { ok: true, id: 'custom-뿌꾸' });
+  assert.deepEqual(cfg.monsters['custom-뿌꾸'].thresholds, [50]);
+  assert.equal(cfg.monsters['custom-뿌꾸'].displayName, '뿌꾸');
+  assert.deepEqual(Object.keys(cfg.monsters), ['pikachu-raichu', 'custom-뿌꾸']);
+});
+test('addCustomMonster: 쓸 수 없는 이름은 거절한다', () => {
+  assert.equal(addCustomMonster(listCfg(), '', [{ name: 'a', gif: '/c/a.gif' }]).ok, false);
+  assert.equal(addCustomMonster(listCfg(), '../etc', [{ name: 'a', gif: '/c/a.gif' }]).ok, false);
+});
+test('addCustomMonster: GIF가 없으면 거절한다', () => {
+  assert.equal(addCustomMonster(listCfg(), '뿌꾸', []).ok, false);
+  assert.equal(addCustomMonster(listCfg(), '뿌꾸', [{ name: 'a' }]).ok, false);
 });

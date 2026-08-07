@@ -7,6 +7,7 @@ const { buildIndex, koName } = require('./dex');
 const {
   monsterIdFor, buildMonster, stageSlugs, seenSlugsFor,
   nextFloor, reachedSlugs, pickLock: lockOf, mergeStamps,
+  setThresholds, removeMonster, addCustomMonster,
 } = require('./monsters');
 const { downloadGif } = require('./pokeapi');
 const { fetchClaudeUsage } = require('./usage/claude');
@@ -380,6 +381,17 @@ ipcMain.on('dex-onboarded', () => {
   cfg.dexOnboarded = true;
   saveConfig(configFile(), cfg);
 });
+// 몬스터 목록을 고친 뒤에 늘 함께 해야 하는 일. 설정 창은 열릴 때 읽어둔 사본을
+// 들고 있어 목록을 저장하면 그 사이 등록된 몬스터를 덮는다. 그래서 목록을 바꾸는
+// 경로를 전부 이 아래 핸들러로 모으고, 창은 결과만 받아 설정을 다시 읽는다.
+function commitMonsters() {
+  syncDex();
+  saveConfig(configFile(), cfg);
+  pushState();
+  pushPanel();
+  pushDex();
+}
+
 // 활성 몬스터 변경도 메인이 판정한다 — 렌더러가 직접 설정을 고치면 잠금을 우회한다
 ipcMain.handle('set-active-monster', (_, id) => {
   // 방금 렌더러가 추가한 몬스터일 수 있다 — config-changed보다 먼저 닿았으면 다시 읽는다
@@ -389,12 +401,30 @@ ipcMain.handle('set-active-monster', (_, id) => {
     return { ok: false, error: '이번 주에 키울 포켓몬은 이미 골랐어요' };
   }
   setActiveMonster(id);
-  syncDex();
-  saveConfig(configFile(), cfg);
-  pushState();
-  pushPanel();
-  pushDex();
+  commitMonsters();
   return { ok: true };
+});
+ipcMain.handle('set-thresholds', (_, id, thresholds) => {
+  const res = setThresholds(cfg, id, thresholds);
+  if (res.ok) commitMonsters();
+  return res;
+});
+ipcMain.handle('delete-monster', (_, id) => {
+  const res = removeMonster(cfg, id);
+  if (res.ok) commitMonsters();
+  return res;
+});
+// GIF를 고르고 캐시로 복사하는 일은 렌더러만 할 수 있어 그대로 두고, 설정에
+// 넣는 것부터 여기서 한다. 등록과 갈아타기를 한 번에 끝내야 그 사이에 설정을
+// 저장하는 창이 끼어들지 않는다.
+ipcMain.handle('add-custom-monster', (_, name, stages) => {
+  if (pickLock().locked) return { ok: false, error: '이번 주에 키울 포켓몬은 이미 골랐어요' };
+  const res = addCustomMonster(cfg, name, stages);
+  if (!res.ok) return res;
+  // 포켓몬을 등록할 때와 마찬가지로 방금 만든 몬스터로 바로 갈아탄다
+  setActiveMonster(res.id);
+  commitMonsters();
+  return res;
 });
 ipcMain.on('open-dex', openDex);
 ipcMain.on('dex-close', () => { if (dexWin && !dexWin.isDestroyed()) dexWin.hide(); });
@@ -420,11 +450,7 @@ ipcMain.handle('add-monster', async (_, chainPath) => {
     // 고른 포켓몬으로 바로 갈아탄다 — 추가했는데 화면이 그대로면 고른 보람이 없다.
     // 이전 몬스터는 목록에 남아 있어 다음 주에 다시 고를 수 있다.
     setActiveMonster(id);
-    syncDex();
-    saveConfig(configFile(), cfg);
-    pushState();
-    pushPanel();
-    pushDex();
+    commitMonsters();
     return { ok: true, id };
   } catch (e) {
     return { ok: false, error: e.message };

@@ -34,9 +34,14 @@ const CUSTOM_PREFIX = 'custom-';
 
 // 렌더러는 창을 열 때 읽어둔 설정을 통째로 덮어쓰기 때문에, 그 사이 메인이
 // 갱신한 값이 사라진다. 메인만 쓰는 필드를 적어두고 저장 직전에 되돌린다.
+//
+// 여기 적힌 필드는 렌더러가 쓸 수 없다 — 지키는 것과 못 쓰게 막는 것이 같은
+// 동작이라, 두 쪽이 함께 쓰는 필드는 넣으면 안 된다. monsters와 activeMonster는
+// 목록을 바꾸는 경로를 모두 IPC로 옮겨 메인 단독 소유가 된 뒤에 들어왔다.
 const MAIN_OWNED_KEYS = [
   'petPosition', 'usageCache', 'dex', 'activePickedResetAt',
   'dexEnabled', 'dexFreeMode', 'dexOnboarded',
+  'monsters', 'activeMonster',
 ];
 
 const SLUG = /^[a-z0-9-]+$/;

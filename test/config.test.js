@@ -126,12 +126,19 @@ test('설정을 저장해도 메인이 가진 값은 살아남는다', () => {
     petPosition: { x: 10, y: 20 },
     usageCache: { claude: { usage: claudeUsage, at: 1000 } },
     dex: { seen: { pichu: 1 }, caught: { pichu: 2 } },
+    monsters: { 'pikachu-raichu': { displayName: '라이츄' } },
+    activeMonster: 'pikachu-raichu',
+    activePickedResetAt: 1234567890,
   });
-  // 렌더러가 창을 열 때 읽어둔 낡은 설정 — 도감도 캐시도 위치도 비어 있다
+  // 렌더러가 창을 열 때 읽어둔 낡은 설정 — 도감도 캐시도 위치도 몬스터도 비어 있다
   saveConfigPreserving(f, { ...DEFAULTS, source: 'codex' });
   const after = loadConfig(f);
   assert.equal(after.source, 'codex');
   assert.deepEqual(after.petPosition, { x: 10, y: 20 });
   assert.deepEqual(after.dex, { seen: { pichu: 1 }, caught: { pichu: 2 } });
   assert.equal(after.usageCache.claude.at, 1000);
+  // 도감이 등록한 몬스터가 사라지면 잠금만 남아 다음 주까지 되돌릴 수 없다
+  assert.deepEqual(Object.keys(after.monsters), ['pikachu-raichu']);
+  assert.equal(after.activeMonster, 'pikachu-raichu');
+  assert.equal(after.activePickedResetAt, 1234567890);
 });

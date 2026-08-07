@@ -2,7 +2,6 @@ const { ipcRenderer, webUtils } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { loadConfig, saveConfigPreserving } = require('../config');
-const { evenThresholds, validThresholds } = require('../evolution');
 const { resolveSlug } = require('../pokeapi');
 const { esc } = require('../esc');
 const { buildIndex, chainPathsFor } = require('../dex');
@@ -23,8 +22,14 @@ const $ = (id) => document.getElementById(id);
 const list = $('monsters');
 
 function save() {
-  saveConfigPreserving(CONFIG_FILE, cfg); // 펫 위치·사용량 캐시·도감 기록은 main이 주인
+  saveConfigPreserving(CONFIG_FILE, cfg); // 펫 위치·사용량 캐시·도감 기록·몬스터 목록은 main이 주인
   ipcRenderer.send('config-changed');
+  render();
+}
+
+// 메인이 설정을 고친 뒤에 쓴다. 여기서 저장하면 되레 덮어쓰므로 다시 읽기만 한다.
+function reload() {
+  cfg = loadConfig(CONFIG_FILE);
   render();
 }
 
@@ -81,25 +86,22 @@ function render() {
       <button class="thr-save">저장</button> <button class="del">삭제</button>`;
     const radio = li.querySelector('input[name=active]');
     radio.checked = id === cfg.activeMonster;
-    // 활성 몬스터 변경은 메인이 판정한다. 거절당하면 라디오를 원래대로 되돌린다.
+    // 몬스터 목록을 바꾸는 일은 모두 메인이 한다. 거절당하면 알리고 다시 그린다.
     radio.onchange = async () => {
       const res = await ipcRenderer.invoke('set-active-monster', id);
       if (!res.ok) alert(res.error);
-      cfg = loadConfig(CONFIG_FILE);
-      render();
+      reload();
     };
-    li.querySelector('.thr-save').onclick = () => {
+    li.querySelector('.thr-save').onclick = async () => {
       const t = li.querySelector('.thr').value.split(',').map(Number);
-      if (t.length !== m.stages.length - 1 || !validThresholds(t)) {
-        return alert('임계값이 잘못됐어요. 오름차순 0~100, 개수 = 단계 수 - 1');
-      }
-      m.thresholds = t;
-      save();
+      const res = await ipcRenderer.invoke('set-thresholds', id, t);
+      if (!res.ok) alert(res.error);
+      reload();
     };
-    li.querySelector('.del').onclick = () => {
-      delete cfg.monsters[id];
-      if (cfg.activeMonster === id) cfg.activeMonster = Object.keys(cfg.monsters)[0] ?? null;
-      save();
+    li.querySelector('.del').onclick = async () => {
+      const res = await ipcRenderer.invoke('delete-monster', id);
+      if (!res.ok) alert(res.error);
+      reload();
     };
     list.appendChild(li);
   }
@@ -140,9 +142,7 @@ $('poke-add').onclick = async () => {
   $('poke-status').textContent = 'GIF 다운로드 중…';
   const res = await ipcRenderer.invoke('add-monster', paths[+$('poke-paths').value]);
   if (!res.ok) return void ($('poke-status').textContent = '실패: ' + res.error);
-  // 등록은 메인이 했으므로 설정 파일이 이미 바뀌어 있다. 여기서 저장하면 되레 덮어쓴다
-  cfg = loadConfig(CONFIG_FILE);
-  render();
+  reload();
   $('poke-status').textContent = '추가하고 이 계통으로 바꿨어요';
 };
 
@@ -158,14 +158,10 @@ $('custom-add').onclick = async () => {
     fs.copyFileSync(webUtils.getPathForFile(f), dest);
     return { name: `${name} ${i + 1}단계`, gif: dest };
   });
-  const id = 'custom-' + name;
-  cfg.monsters[id] = { displayName: name, stages, thresholds: evenThresholds(stages.length) };
-  save();
-  // 포켓몬을 추가할 때와 마찬가지로 방금 만든 몬스터로 갈아탄다
-  const res = await ipcRenderer.invoke('set-active-monster', id);
+  // 설정에 넣고 갈아타는 것은 메인이 한 번에 한다 — 포켓몬을 등록할 때와 같다
+  const res = await ipcRenderer.invoke('add-custom-monster', name, stages);
   if (!res.ok) alert(res.error);
-  cfg = loadConfig(CONFIG_FILE);
-  render();
+  reload();
 };
 
 render();
