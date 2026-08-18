@@ -24,6 +24,10 @@ const DEFAULTS = {
   dexFreeMode: false,
   // 도감 안내를 끝까지 봤는지
   dexOnboarded: false,
+  // 게임식 진화 연출 (끄면 짧은 플래시만)
+  evolutionCinematic: true,
+  // 이스터에그로 막아둔 진화 { monster, idx, blockedTo }
+  evolutionBlock: null,
 };
 
 // 소스별 캐시로 대체된 옛 필드 — 남아 있으면 헷갈리므로 읽을 때 걷어낸다
@@ -42,6 +46,7 @@ const MAIN_OWNED_KEYS = [
   'petPosition', 'usageCache', 'dex', 'activePickedResetAt',
   'dexEnabled', 'dexFreeMode', 'dexOnboarded',
   'monsters', 'activeMonster',
+  'evolutionBlock', // 진화 연출 중 이스터에그로 막은 기록 — 메인만 쓴다
 ];
 
 const SLUG = /^[a-z0-9-]+$/;

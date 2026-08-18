@@ -54,9 +54,13 @@ function nextFloor(monster, percent, prevFloor) {
 // 시작선 위로 올라간 단계들. 중간 단계를 함께 돌려주는 이유는 폴링이 5분 간격이라
 // 10%에서 80%로 뛴 사이를 못 보고 지나칠 수 있기 때문이다 — 그러면 라이츄는
 // 도달했는데 피카츄는 못 만난 도감이 된다.
-function reachedSlugs(monster, percent, floor = -1) {
+// cap은 화면에 실제로 보여준 단계다. 소진율이 임계값을 넘어도 진화 연출을 기다리는
+// 동안에는 아직 그 모습을 보여준 적이 없으므로 기록하지 않는다 — 도감을 열면 아직
+// 만나지 않은 진화형의 이름과 모습이 미리 드러나기 때문이다. B로 진화를 멈춘 경우도
+// 같다. 대기가 풀려 단계가 오르면 그때 중간 단계까지 함께 기록되므로 빠지지 않는다.
+function reachedSlugs(monster, percent, floor = -1, cap = Infinity) {
   if (!monster || percent == null) return [];
-  const idx = stageIndex(monster.thresholds || [], percent);
+  const idx = Math.min(stageIndex(monster.thresholds || [], percent), cap);
   return stageSlugs(monster).slice(floor + 1, idx + 1);
 }
 

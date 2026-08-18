@@ -4,16 +4,20 @@
   body { position: relative; height: 100vh;
     font: 12px 'Pretendard Variable', Pretendard, -apple-system, 'Apple SD Gothic Neo', sans-serif; }
   /* 박스는 JS가 펫 중심에 맞춰 left를 계산해 배치 (창 중앙 고정이면 구석에서 어긋남) */
+  /* nowrap 대신 max-content + max-width: 짧은 문구는 한 줄, 진화 축하처럼
+     긴 문구는 잘리지 않고 두 줄로 접힌다 (창 높이 76px에 12px 두 줄이 들어간다) */
   #bubble { position: absolute; background: rgba(24,24,27,.95); color: #ececf0;
     border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 6px 12px;
     text-align: center; word-break: keep-all; max-width: calc(100vw - 24px);
-    white-space: nowrap;
+    width: max-content;
     animation: pop .18s cubic-bezier(.2,.9,.3,1.3); }
   body:not(.below) #bubble { bottom: 9px; }
   body.below #bubble { top: 9px; }
   #bubble b { font: 600 12px ui-monospace, 'SF Mono', Menlo, monospace;
     font-variant-numeric: tabular-nums; color: #ffb340; }
   #bubble b.notice { font: inherit; font-weight: 700; color: #7ec8ff; }
+  /* 몬스터 이름: 모노스페이스 스택에는 한글이 없어 본문 폰트를 그대로 쓴다 */
+  #bubble b.name { font: inherit; font-weight: 700; color: #ffb340; }
   @keyframes pop { from { opacity: 0; transform: scale(.94); } }
   #bubble::after { content: ''; position: absolute; left: var(--tail, 50%); transform: translateX(-50%);
     border: 5px solid transparent; }

@@ -87,6 +87,16 @@ test('reachedSlugs: 물려받은 단계는 인정하지 않는다', () =>
   assert.deepEqual(reachedSlugs(pichuLine, 50, 1), []));
 test('reachedSlugs: 시작선 위로 올라간 것만', () =>
   assert.deepEqual(reachedSlugs(pichuLine, 80, 1), ['raichu']));
+// 진화 대기 중에는 화면이 이전 단계에 붙잡혀 있다. 도감이 먼저 앞서가면 아직
+// 만나지 않은 진화형의 이름과 모습이 드러난다.
+test('reachedSlugs: 보여준 단계까지만 인정한다', () =>
+  assert.deepEqual(reachedSlugs(pichuLine, 80, -1, 0), ['pichu']));
+test('reachedSlugs: B로 멈춘 진화는 기록되지 않는다', () =>
+  assert.deepEqual(reachedSlugs(pichuLine, 80, 0, 1), ['pikachu']));
+test('reachedSlugs: 대기가 풀리면 건너뛴 단계까지 함께 따라온다', () =>
+  assert.deepEqual(reachedSlugs(pichuLine, 80, -1, 2), ['pichu', 'pikachu', 'raichu']));
+test('reachedSlugs: 상한이 시작선보다 낮아도 안전', () =>
+  assert.deepEqual(reachedSlugs(pichuLine, 80, 1, 0), []));
 test('reachedSlugs: 소진율을 모르면 빈 결과', () =>
   assert.deepEqual(reachedSlugs(pichuLine, null, -1), []));
 test('reachedSlugs: 몬스터가 없으면 빈 결과', () => assert.deepEqual(reachedSlugs(null, 50, -1), []));
