@@ -71,6 +71,11 @@ function pathsThrough(index, slug) {
   return hit.length ? hit : all;
 }
 
+// 도감에서 진화형을 눌러도 선택은 항상 계통의 첫 단계에서 시작한다.
+function selectionPathsFor(index, slug) {
+  return pathsThrough(index, slug);
+}
+
 // 같은 진화 트리에 속한 모든 종. 하나를 등록하면 이 종들이 함께 도감에 공개된다.
 function chainSlugs(index, slug) {
   return [...new Set(chainPathsFor(index, slug).flat())];
@@ -111,6 +116,7 @@ module.exports = {
   depthOf,
   chainPathsFor,
   pathsThrough,
+  selectionPathsFor,
   chainSlugs,
   searchSlugs,
   cellState,

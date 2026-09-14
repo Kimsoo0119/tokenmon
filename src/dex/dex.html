@@ -68,11 +68,11 @@
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .cell .badge { position: absolute; top: 5px; right: 7px; font-size: 9px; }
 
-  /* 실제로 그 단계까지 키워본 종만 모습을 드러낸다. 계통을 등록해두었을 뿐
-     아직 닿지 못한 종은 미등록과 똑같이 실루엣이다 — 도감에 색이 켜지는 것은
-     도달했다는 뜻이어야 한다. brightness(0)은 알파를 살리므로 윤곽이 남는다 */
+  /* 진화형은 실제로 도달하기 전까지 실루엣으로 둔다. 첫 단계는 선택할 수 있어야
+     하므로 모습을 흑백으로 공개한다. */
   .cell.unseen img, .cell.seen img { filter: brightness(0) saturate(0); opacity: .8; }
   .cell.unseen .nm, .cell.seen .nm { color: var(--faint); }
+  .cell[data-role=start].unseen img { filter: grayscale(1); opacity: .85; }
   .cell.caught img { filter: none; }
 
   .cell[data-role=start] .badge { color: var(--accent); }
@@ -90,6 +90,7 @@
   #sheet .top { display: flex; align-items: center; gap: 14px; }
   #sheet .top img { width: 72px; height: 64px; object-fit: contain; image-rendering: pixelated; }
   #sheet .top img.unknown { filter: brightness(0) saturate(0); opacity: .8; }
+  #sheet .top img.starter-preview { filter: grayscale(1); opacity: .85; }
   #sheet h2 { font-size: 16px; margin: 0 0 2px; letter-spacing: -.2px; }
   #sheet .meta { font: 11px var(--mono); color: var(--muted); }
   #sheet .role { font-size: 11.5px; color: var(--muted); margin-top: 10px; line-height: 1.6; }
