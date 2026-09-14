@@ -44,6 +44,15 @@ function pushState() {
 
 const weeklyResetAt = () => (lastUsage && lastUsage.weekly ? lastUsage.weekly.resetsAt ?? null : null);
 
+// 주간 사용률이 0이면 새 주를 시작하기 전까지 알로 보여준다.
+const petPercentOf = (u) => (u && u.weekly && u.weekly.pct > 0) ? u.weekly.pct : null;
+
+function clearPetAfterReset() {
+  if (lastUsage?.weekly?.resetsAt != null && lastUsage.weekly.resetsAt <= Date.now()) {
+    lastPercent = null;
+  }
+}
+
 // 한 주에 한 마리를 끝까지 키우자는 규칙. 고른 시점의 주간 리셋 시각을 적어두고,
 // 그 시각이 지나 새 주가 시작되기 전에는 다른 계통으로 바꿀 수 없게 막는다.
 // 소진율을 아직 모르면 막지 않는다 — 조회에 실패했다고 갇히면 곤란하다.
@@ -98,12 +107,12 @@ async function poll() {
   try {
     if (cfg.source === 'codex') {
       const u = await fetchCodexUsage();
-      if (u) { lastUsage = u; lastPercent = u.weekly.pct; persistUsage(u); }
+      if (u) { lastUsage = u; lastPercent = petPercentOf(u); persistUsage(u); }
       lastError = u == null;
     } else if (Date.now() >= claudeBackoffUntil) {
       const u = await fetchClaudeUsage();
       lastUsage = u;
-      lastPercent = u.weekly.pct;
+      lastPercent = petPercentOf(u);
       lastError = false;
       persistUsage(u);
     }
@@ -116,6 +125,7 @@ async function poll() {
       lastError = true; // 마지막 성공 값 유지
     }
   }
+  clearPetAfterReset();
   persistDex();
   updateTray();
   pushState();
@@ -134,7 +144,7 @@ function panelData() {
     source: cfg.source,
     error: lastError,
     usage: lastUsage,
-    monster: m ? {
+    monster: m && lastPercent != null ? {
       name: m.displayName,
       stageName: m.stages[idx].name,
       stageIdx: idx,
@@ -344,7 +354,7 @@ app.whenReady().then(() => {
   const cached = cachedUsage(cfg);
   if (cached) {
     lastUsage = cached;
-    lastPercent = cached.weekly.pct; // 첫 폴링 전/백오프 중에도 마지막 값으로 표시
+    lastPercent = petPercentOf(cached); // 첫 폴링 전/백오프 중에도 마지막 상태로 표시
   }
   persistDex(); // 재시작 직후에도 마지막으로 알던 단계까지는 기록해둔다
   tray = new Tray(nativeImage.createEmpty());
@@ -480,7 +490,7 @@ ipcMain.on('config-changed', () => {
   if (sourceChanged) {
     const cached = cachedUsage(cfg);
     lastUsage = cached;
-    lastPercent = cached ? cached.weekly.pct : null;
+    lastPercent = petPercentOf(cached);
     lastError = false;
   }
   persistDex(); // 활성 몬스터나 임계값이 바뀌었을 수 있다
