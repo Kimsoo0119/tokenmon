@@ -65,35 +65,39 @@ document.addEventListener('mousemove', (e) => {
   }
 });
 
-// 드래그(이동) vs 클릭(공격 + 툴팁) 구분: 4px 이상 움직이면 드래그
+// 드래그(이동)와 클릭을 구분한다. 알도 펫과 같은 창 안에서 움직여야 하므로
+// 두 요소에 같은 드래그 처리를 붙인다.
 // 포인터 캡처를 걸어 창 밖에서 버튼을 놓아도 up 이벤트를 놓치지 않음
 // (놓치면 down 상태가 남아 다음 호버 때 이전 오프셋으로 순간이동하는 버그가 생김)
 let down = null;
 let moved = false;
-sprite.addEventListener('pointerdown', (e) => {
-  sprite.setPointerCapture(e.pointerId);
+function pointerDown(e) {
+  e.currentTarget.setPointerCapture(e.pointerId);
   down = { sx: e.screenX, sy: e.screenY };
   moved = false;
   ipcRenderer.send('drag-start'); // 시작 좌표는 메인이 getPosition으로 잡음
-});
-sprite.addEventListener('pointermove', (e) => {
+}
+function pointerMove(e) {
   if (!down) return;
   const dx = e.screenX - down.sx;
   const dy = e.screenY - down.sy;
   if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
   if (moved) ipcRenderer.send('move-pet', { dx: Math.round(dx), dy: Math.round(dy) });
-});
-sprite.addEventListener('pointerup', (e) => {
-  try { sprite.releasePointerCapture(e.pointerId); } catch { /* 이미 해제됨 */ }
+}
+function pointerUp(e) {
+  try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* 이미 해제됨 */ }
   if (down && moved) ipcRenderer.send('drag-end');
-  else if (down) attack();
+  else if (down && e.currentTarget === sprite) attack();
+  else if (down) ipcRenderer.send('open-settings');
   down = null;
-});
-sprite.addEventListener('pointercancel', () => { down = null; });
+}
+for (const el of [sprite, empty]) {
+  el.addEventListener('pointerdown', pointerDown);
+  el.addEventListener('pointermove', pointerMove);
+  el.addEventListener('pointerup', pointerUp);
+  el.addEventListener('pointercancel', () => { down = null; });
+}
 window.addEventListener('blur', () => { down = null; });
-
-// 알 상태에서 클릭하면 설정을 열어줌 (첫 실행 온보딩)
-empty.addEventListener('click', () => ipcRenderer.send('open-settings'));
 
 sprite.addEventListener('animationend', () => sprite.classList.remove('attacking', 'notifying'));
 
