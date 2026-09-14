@@ -1,6 +1,6 @@
 const { ipcRenderer } = require('electron');
 const {
-  buildIndex, isStarter, chainRoot, chainPathsFor, pathsThrough, searchSlugs, cellState, dexCounts,
+  buildIndex, isStarter, chainRoot, chainPathsFor, selectionPathsFor, searchSlugs, cellState, dexCounts,
 } = require('../dex');
 
 const index = buildIndex(require('../../assets/dex.json'));
@@ -112,11 +112,14 @@ function openSheet(slug) {
   const e = index.bySlug[slug];
   if (!e) return;
   const start = isStarter(index, slug);
-  sheetPaths = start ? chainPathsFor(index, slug) : pathsThrough(index, slug);
+  sheetPaths = start ? chainPathsFor(index, slug) : selectionPathsFor(index, slug);
 
   const known = caught(slug);
+  // 첫 단계는 아직 도달하지 않아도 실제 모습을 흑백으로 보여줘 바로 고를 수 있게 한다.
+  const revealStarter = start && !known;
   $('sheet-sprite').src = ANIM(slug);
-  $('sheet-sprite').classList.toggle('unknown', !known);
+  $('sheet-sprite').classList.toggle('unknown', !known && !revealStarter);
+  $('sheet-sprite').classList.toggle('starter-preview', revealStarter);
   $('sheet-name').textContent = shownName(slug);
   // 도감 번호와 세대는 격자에서도 보이므로 그대로 두고, 전설·환상 여부처럼
   // 키워봐야 알 수 있는 것은 도달 전까지 밝히지 않는다

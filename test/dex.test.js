@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   buildIndex, koName, isStarter, chainRoot, depthOf,
-  chainPathsFor, pathsThrough, chainSlugs, searchSlugs, cellState, dexCounts,
+  chainPathsFor, pathsThrough, selectionPathsFor, chainSlugs, searchSlugs, cellState, dexCounts,
 } = require('../src/dex');
 
 // 직선(피츄) · 분기(이브이) · 진화 없음(켄타로스) · 하이픈 슬러그에 부모가 더 큰
@@ -57,6 +57,8 @@ test('pathsThrough: 그 종을 지나는 경로만', () =>
   assert.deepEqual(pathsThrough(idx, 'jolteon'), [['eevee', 'jolteon']]));
 test('pathsThrough: 뿌리면 전부', () =>
   assert.equal(pathsThrough(idx, 'eevee').length, 2));
+test('selectionPathsFor: 진화형을 골라도 첫 단계부터 선택', () =>
+  assert.deepEqual(selectionPathsFor(idx, 'raichu'), [['pichu', 'pikachu', 'raichu']]));
 
 test('chainSlugs: 분기 체인 전체를 중복 없이', () =>
   assert.deepEqual(chainSlugs(idx, 'jolteon'), ['eevee', 'vaporeon', 'jolteon']));
